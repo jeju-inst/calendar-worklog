@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.namun.morning-briefing</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/namun/dev/calendar-worklog/briefing/run-briefing.sh</string>
+  </array>
+
+  <!-- 평일(월~금) 08:00. work_hours.start(08:30) 30분 전 — 실행에 ~6분 걸리므로 출근 전 도착. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+
+  <!-- 러너가 자체 로그(briefing/logs/)를 쓰므로 여기선 부팅 실패만 잡는다. -->
+  <key>StandardErrorPath</key>
+  <string>/Users/namun/dev/calendar-worklog/briefing/logs/launchd.err</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

@@ -208,8 +208,10 @@ description: >-
    `mailskill` 어댑터로 다계정(Gmail connector + IMAP) 통합. 회사 메일은 보통 `ji` 계정.
    - 계정 목록은 `mailskill accounts`로 확인.
    - 받은편지함 + 보낸편지함 모두 대상 일자로 조회. 예:
-     `mailskill search ji since 2026-06-16 before 2026-06-17`
-     (Sent 폴더는 `mailskill search ji -f Sent ...`)
+     `mailskill search ji after 2026-06-15 and before 2026-06-17`
+     (`since` 라는 조건은 없다. 기간은 `after`/`before` 를 `and` 로 묶고, 경계는 배타적이다.)
+     - 보낸편지함은 `-f` 로 지정: `mailskill search ji -f "Sent Messages" after ... and before ...`
+       폴더 이름은 계정마다 다르니 `mailskill folders ji` 로 먼저 확인한다.
    - 추출: 시각, 상대방, 제목. **본문은 description에 옮기지 않음** (DM과 동일 보안 모델).
      주제만 일반화해서 요약.
    - 단발 메일은 인접 블록에 흡수. 외부 응대/공식 회신에 시간 들인 경우(회신 작성 30분+) 별도 블록.

@@ -18,6 +18,15 @@
   - 예: `slack_search_public_and_private`, `slack_read_channel`
 - **프로젝트 관리 활동 조회**: monday.com (또는 Jira/Asana 등 회사 도구)
   - 예: `get_board_activity`, `get_user_context`, `get_board_items_page`
+- **메일 읽기/검색** *(선택)*: 계약은 `mailskill`의 5동사
+  (`accounts` / `list` / `search` / `read` / `reply`)
+  - 백엔드(himalaya·IMAP·API·커넥터)는 구현 세부이므로 **가정하지 않습니다.**
+    회사 메일이 커넥터를 제공하지 않는 환경이 있어(예: 네이버웍스) 백엔드가
+    환경마다 다릅니다. 계약만 호출하십시오.
+  - 없으면 메일 소스를 건너뛰고 보고에 누락으로 명시합니다(단계 C-4).
+- **메시지(문자/iMessage) 읽기** *(선택)*: `msg` / messages-cli 계약. macOS 로컬 전용.
+  - 사후 업무일지에서는 기여가 작아 우선순위가 낮습니다. 아침 브리핑
+    (`briefing/prompt.md`)에서 주로 씁니다.
 - **과거 AI 대화 검색** *(선택)*: 본 어시스턴트의 과거 세션 검색
   - 예: `conversation_search`, `recent_chats`
 
@@ -101,9 +110,10 @@
    - 추출: 시각 + 상대방 + 제목 정도. 본문은 주제만 일반화해서 요약
    - 단발 메일은 인접 블록에 흡수, 회신 작성에 시간 들인 외부 응대는 별도 블록 가능
 
-5. *(향후 확장)* **SMS/iMessage**: macOS `~/Library/Messages/chat.db`로 가능하나 Full Disk
-   Access 권한 + 개인 메시지 다수라 우선순위 낮음. 회사 모바일 채널이 카카오톡/Slack이면
-   불필요.
+5. **SMS/iMessage** *(선택, 기여 작음)*: `msg` 계약으로 조회 가능(`chat.db`를 직접
+   열지 않음). 다만 사후 업무일지에서는 업무 신호 대비 사적 메시지 비중이 높아
+   우선순위가 낮습니다. 회사 모바일 채널이 카카오톡/Slack이면 생략해도 무방.
+   아침 브리핑(`briefing/prompt.md`)에서는 정식 소스로 씁니다.
 
 ### 단계 D. 시간대별 활동 클러스터링
 - 인접한 활동을 묶어 **30분~60분 단위 블록**으로 그룹화
