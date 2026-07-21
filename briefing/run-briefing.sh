@@ -46,14 +46,18 @@ $(cat core/user-config.yaml)
 
 지금 이 실행은 위 문서의 **무인 실행**이다. 사람이 보지 않는다.
 - 오늘 날짜: $(date '+%Y-%m-%d (%a)') KST
-- 단계 A~F를 끝까지 수행하고, 완성된 브리핑을 Slack DM으로 **반드시 발송**한 뒤 종료한다.
+- **먼저 단계 A-0(근무일 게이트)를 수행한다.** 오늘이 연가·휴가·공휴일 등 비근무일이면
+  브리핑을 만들지 말고, DM도 보내지 말고, \`BRIEFING_SKIPPED: <사유>(<날짜>)\` 한 줄만
+  남기고 즉시 종료한다. (건너뛴 구간은 복귀일 브리핑이 흡수하므로 유실되지 않는다.)
+- 근무일이면 단계 A~F를 끝까지 수행하고, 완성된 브리핑을 Slack DM으로 **반드시 발송**한 뒤 종료한다.
 - 발송 대상: 본인 DM (Slack user \`$SLACK_SELF\`).
 - 캘린더는 위 config의 \`calendars\` 4개 + \`read_only_calendars\`를 **ID로 지정해** 조회한다.
   primary 캘린더만 보면 안 된다(비어 있다).
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
 - 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
   메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
-- 마지막에 표준출력으로 \`BRIEFING_SENT\` 또는 \`BRIEFING_FAILED: <사유>\` 한 줄을 남긴다.
+- 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
+  \`BRIEFING_FAILED: <사유>\` 셋 중 하나를 한 줄로 남긴다.
 EOF
 )
 
@@ -66,6 +70,14 @@ RC=$?
 
 echo "$OUT"
 echo "--- claude rc=$RC ---"
+
+# 결말은 셋 중 하나다: 발송 / 건너뜀(비근무일) / 실패.
+# 건너뜀을 실패로 오인하면 연차 아침마다 실패 알림이 뜬다 — 정확히 피하려던 방해다.
+if [ $RC -eq 0 ] && printf '%s' "$OUT" | /usr/bin/grep -q 'BRIEFING_SKIPPED'; then
+  echo "=== $(date '+%F %T') 비근무일 — 건너뜀 ($(printf '%s' "$OUT" | /usr/bin/grep -o 'BRIEFING_SKIPPED.*' | head -1)) ==="
+  /usr/bin/find "$LOGDIR" -name '*.log' -mtime +30 -delete 2>/dev/null
+  exit 0
+fi
 
 if [ $RC -ne 0 ] || ! printf '%s' "$OUT" | /usr/bin/grep -q 'BRIEFING_SENT'; then
   echo "실패 감지 — 알림 발송 시도"
