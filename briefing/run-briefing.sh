@@ -57,7 +57,9 @@ $(cat core/user-config.yaml)
 - 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
   메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
 - 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
-  \`BRIEFING_FAILED: <사유>\` 셋 중 하나를 한 줄로 남긴다.
+  \`BRIEFING_FAILED: <사유>\` 셋 중 **정확히 하나**를 한 줄로 남긴다.
+  나머지 두 토큰은 사유 설명에도 쓰지 마라 — 러너가 상충으로 보고 실패 처리한다.
+  (예: 실패 사유에 "건너뛸 수 없었다"를 적더라도 \`SKIPPED\`라는 단어는 넣지 마라.)
 EOF
 )
 
@@ -72,21 +74,31 @@ echo "$OUT"
 echo "--- claude rc=$RC ---"
 
 # 결말은 셋 중 하나다: 발송 / 건너뜀(비근무일) / 실패.
-# 건너뜀을 실패로 오인하면 연차 아침마다 실패 알림이 뜬다 — 정확히 피하려던 방해다.
-if [ $RC -eq 0 ] && printf '%s' "$OUT" | /usr/bin/grep -q 'BRIEFING_SKIPPED'; then
-  echo "=== $(date '+%F %T') 비근무일 — 건너뜀 ($(printf '%s' "$OUT" | /usr/bin/grep -o 'BRIEFING_SKIPPED.*' | head -1)) ==="
-  /usr/bin/find "$LOGDIR" -name '*.log' -mtime +30 -delete 2>/dev/null
-  exit 0
-fi
+# 판정을 부분 문자열 매칭으로 하면 안 된다 — claude 가
+#   BRIEFING_FAILED: calendar unavailable; cannot return BRIEFING_SKIPPED
+# 처럼 한 줄에 두 토큰을 섞어 낼 수 있고, 그러면 실패가 "건너뜀"으로 조용히 묻힌다.
+# (건너뜀을 실패로 오인하면 연차 아침마다 실패 알림이 뜨고, 그 반대는 실패를 삼킨다.
+#  후자가 더 위험하다.) 그래서 상태 토큰을 전부 모아 아래 규칙으로 판정한다:
+#   - rc≠0, 또는 FAILED 가 섞였거나, 서로 다른 상태가 2종 이상이면 → 실패
+#   - SENT 단독 → 완료   / SKIPPED 단독 → 건너뜀   / 아무것도 없음 → 실패
+KINDS=$(printf '%s\n' "$OUT" | /usr/bin/grep -oE 'BRIEFING_(SENT|SKIPPED|FAILED)' | sort -u)
+NKINDS=$(printf '%s' "$KINDS" | /usr/bin/grep -c .)
 
-if [ $RC -ne 0 ] || ! printf '%s' "$OUT" | /usr/bin/grep -q 'BRIEFING_SENT'; then
-  echo "실패 감지 — 알림 발송 시도"
+if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' || [ "$NKINDS" -gt 1 ] || [ "$NKINDS" -eq 0 ]; then
+  echo "실패 감지 — 알림 발송 시도 (rc=$RC, 상태='$(printf '%s' "$KINDS" | tr '\n' ',')')"
   # 조용히 죽지 않는다. 브리핑이 '안 온 것'과 '실패한 것'을 구분할 수 있어야 한다.
   /usr/bin/osascript -e 'display notification "아침 브리핑 생성 실패 — 로그 확인" with title "calendar-worklog"' 2>/dev/null
   echo "=== $(date '+%F %T') 브리핑 실패 (rc=$RC) ==="
   exit 1
 fi
 
+if [ "$KINDS" = "BRIEFING_SKIPPED" ]; then
+  echo "=== $(date '+%F %T') 비근무일 — 건너뜀 ($(printf '%s' "$OUT" | /usr/bin/grep -oE 'BRIEFING_SKIPPED[^[:cntrl:]]*' | head -1)) ==="
+  /usr/bin/find "$LOGDIR" -name '*.log' -mtime +30 -delete 2>/dev/null
+  exit 0
+fi
+
+# 여기 오면 KINDS = BRIEFING_SENT 단독.
 echo "=== $(date '+%F %T') 브리핑 완료 ==="
 
 # 로그는 30일치만 유지
