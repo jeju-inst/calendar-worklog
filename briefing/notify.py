@@ -57,8 +57,17 @@ def read_target(cli_to):
     return None
 
 
+# 표시 이름/아이콘. 현재 봇 토큰을 다른 앱(hwp_preview)에서 빌려 쓰더라도
+# 메시지 표시상으로는 worklog 로 보이게 한다(chat:write.customize 스코프 필요, 확인됨).
+# 전용 봇으로 갈아타면 이 값과 무관하게 그 봇 이름이 뜨므로 그대로 둬도 된다.
+BOT_NAME = os.environ.get("SLACK_NOTIFY_USERNAME", "worklog")
+BOT_ICON = os.environ.get("SLACK_NOTIFY_ICON", ":memo:")
+
+
 def post(token, channel, text):
-    body = json.dumps({"channel": channel, "text": text}).encode()
+    payload = {"channel": channel, "text": text,
+               "username": BOT_NAME, "icon_emoji": BOT_ICON}
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(
         "https://slack.com/api/chat.postMessage",
         data=body,
