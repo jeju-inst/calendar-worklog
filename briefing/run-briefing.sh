@@ -16,6 +16,20 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/us
 export HOME="${HOME:-/Users/namun}"
 export LANG="en_US.UTF-8"
 
+# 브리핑 전용 장기 토큰(claude setup-token 으로 발급)이 있으면 그걸로 인증한다.
+# 이러면 사용자가 평소 쓰는 대화형 claude 로그인(OAuth 세션)이 만료돼도 브리핑은
+# 자기 토큰으로 독립적으로 계속 돈다 — 2026-08-03 처럼 로그인 풀려 브리핑이 통째로
+# 죽는 사고를 근본 예방한다. 토큰 파일이 없으면 기존 OAuth 세션으로 폴백(하위호환).
+#   발급: `claude setup-token` → 출력 토큰을 아래 파일에 저장(chmod 600)
+#   저장: ~/.config/calendar-worklog/claude-token
+CLAUDE_TOKEN_FILE="$HOME/.config/calendar-worklog/claude-token"
+if [ -r "$CLAUDE_TOKEN_FILE" ] && [ -s "$CLAUDE_TOKEN_FILE" ]; then
+  export CLAUDE_CODE_OAUTH_TOKEN="$(cat "$CLAUDE_TOKEN_FILE")"
+  echo "인증: 브리핑 전용 장기 토큰 사용(대화형 로그인과 독립)"
+else
+  echo "인증: 전용 토큰 없음 — 기존 OAuth 세션 사용(로그인 풀리면 같이 죽음). setup-token 권장."
+fi
+
 mkdir -p "$LOGDIR"
 exec >>"$LOG" 2>&1
 echo "=== $(date '+%F %T %Z') 브리핑 시작 ==="
