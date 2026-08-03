@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.namun.claude-authcheck</string>
+
+  <!-- claude 로그인 상태를 로컬 파일로만 확인(claude 미실행, 비용 0).
+       풀리면 독립 경로(Slack Bot Token)로 폰 알림. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/namun/dev/calendar-worklog/briefing/authcheck.py</string>
+  </array>
+
+  <!-- 1시간마다. 로컬 파일 읽기뿐이라 자주 돌려도 부담 없음. 로그인 즉시 감지용. -->
+  <key>StartInterval</key>
+  <integer>3600</integer>
+
+  <!-- 부팅/로드 직후에도 1회 확인 -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/namun/dev/calendar-worklog/briefing/logs/authcheck.err</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

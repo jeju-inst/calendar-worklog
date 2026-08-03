@@ -88,6 +88,20 @@ if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' ||
   echo "실패 감지 — 알림 발송 시도 (rc=$RC, 상태='$(printf '%s' "$KINDS" | tr '\n' ',')')"
   # 조용히 죽지 않는다. 브리핑이 '안 온 것'과 '실패한 것'을 구분할 수 있어야 한다.
   /usr/bin/osascript -e 'display notification "아침 브리핑 생성 실패 — 로그 확인" with title "calendar-worklog"' 2>/dev/null
+
+  # 실패 원인이 claude 로그인(OAuth) 만료면 그걸 특정해 알린다. 이게 제일 잦은 원인이고,
+  # 브리핑뿐 아니라 claude 를 쓰는 루틴 전부가 같이 죽으므로 사람이 바로 재로그인해야 한다.
+  if printf '%s' "$OUT" | /usr/bin/grep -qiE 'OAuth session expired|Failed to authenticate|Invalid API key|not authenticated'; then
+    MSG="⚠️ 아침 브리핑 실패 — *claude 로그인(OAuth) 만료로 추정*. claude 를 쓰는 루틴이 전부 멈춥니다. 터미널에서 \`claude\` 실행 후 재로그인(/login) 필요. (rc=$RC, $(date '+%F %T'))"
+  else
+    MSG="⚠️ 아침 브리핑 실패 (rc=$RC) — 로그 확인: $LOG ($(date '+%F %T'))"
+  fi
+  # 독립 경로(Slack Bot Token 직접, claude/codex/agy 무관)로 폰에 DM.
+  # 감시 대상(claude)이 죽어도 이 경로는 산다. 알림마저 실패하면 로그에 남긴다.
+  if ! /usr/bin/python3 "$REPO/briefing/notify.py" "$MSG" 2>>"$LOG"; then
+    echo "!! 독립 알림(notify.py)도 실패 — Slack 토큰/네트워크 점검 필요"
+  fi
+
   echo "=== $(date '+%F %T') 브리핑 실패 (rc=$RC) ==="
   exit 1
 fi
