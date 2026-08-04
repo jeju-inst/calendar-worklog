@@ -13,13 +13,23 @@ worklog 본체(`core/prompt.md`)가 *어제 뭐 했나*를 캘린더에 기록�
 이게 사람 확인 없이 08:00에 무인 실행해도 되는 근거다. 쓰기 동작을 추가하려면 무인 실행
 전제부터 다시 봐야 한다.
 
+> **할 일 리스트 동기화도 이 계약을 안 깬다.** 모델은 `TODO_LIST_START/END` 블록을
+> 표준출력에 낼 뿐 리스트 API를 부르지 않는다. 실제 리스트 쓰기는 브리핑이 끝난 뒤
+> **러너가** `list-sync.py`로 한다 — 모델이 하는 쓰기는 여전히 DM 1건뿐이다.
+
 ## 구성
 
 | 파일 | 역할 |
 |---|---|
-| `prompt.md` | 브리핑 워크플로 (단계 A~F + 순위 기준) |
-| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p` 실행 + 실패 알림 |
+| `prompt.md` | 브리핑 워크플로 (단계 A~G + 순위 기준) |
+| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p` 실행 + 실패 알림 + 리스트 동기화 호출 |
+| `list-sync.py` | 모델이 낸 TODO 블록을 Slack 리스트(todo_mode)에 반영. 러너가 **성공 실행에서만** 호출(비차단) |
+| `todo-list.example.json` | 리스트 동기화 설정 템플릿. 본인 값은 레포 밖(`~/.config/calendar-worklog/`)에 둔다 |
+| `notify.py` | 독립 경로 Slack 알림(봇 토큰 직접). claude가 죽어도 이 경로는 산다 |
+| `authcheck.py` | claude 로그인 상태 선제 감시 (keychain 기준, 비용 0) |
 | `com.namun.morning-briefing.plist` | launchd 스케줄 (평일 08:00) |
+| `com.namun.claude-authcheck.plist` | launchd 스케줄 (로그인 감시, 매시간) |
+| `SETUP-TOKEN.md` | 브리핑 전용 장기 토큰(`claude setup-token`) 발급·갱신 절차 |
 | `logs/` | 일자별 실행 로그 (30일 보관, gitignore) |
 
 ## 소스와 백엔드
@@ -65,6 +75,51 @@ launchd 환경을 흉내내서 돌려보려면:
 ```sh
 env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin ./briefing/run-briefing.sh
 ```
+
+브리핑 자체는 위 두 단계로 끝난다. **오늘 할 일 리스트 동기화는 별도 설정**이 필요하고,
+안 해도 브리핑은 정상 동작한다 (아래 참조).
+
+## 오늘 할 일 리스트 동기화
+
+브리핑이 뽑은 오늘 할 일을 Slack 네이티브 리스트(todo_mode)에 매일 반영한다. 완료 체크는
+Slack 서버에 저장되므로 **우리 쪽 상시 서버가 필요 없다** — 인터랙티브 체크박스가 요구하는
+Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
+
+동작 순서: 모델이 `TODO_LIST_START/END` 블록을 stdout에 냄 → 러너가 `awk`로 뽑아
+`list-sync.py`에 stdin으로 넘김 → 기존 항목은 **이월**하고 없는 이름만 추가한다.
+
+### 설정 (레포 밖)
+
+`briefing/todo-list.example.json`을 `~/.config/calendar-worklog/todo-list.json`으로 복사해
+채운다. 봇 토큰은 `notify.py`와 같은 것을 쓰되(`slack-bot-token`), **스코프에
+`lists:write`·`lists:read`를 추가하고 앱을 재설치**해야 반영된다. 안 하면 `missing_scope`로만
+실패한다.
+
+| 키 | 필수 | 읽는 곳 | 뜻 |
+|---|---|---|---|
+| `list_id` | ✅ | `list-sync.py` | 대상 리스트 ID (`F…`) |
+| `name_column_id` | ✅ | `list-sync.py` | 할 일 이름 컬럼 ID (`Col…`) |
+| `due_column_id` | | `list-sync.py` | 마감일 컬럼. 없으면 `due:`를 무시한다 |
+| `share_user_id` | | `list-sync.py` | 매 실행 쓰기 권한을 보장할 사용자 (`U…`) |
+| `list_url` | | `run-briefing.sh` | DM 맨 끝에 붙일 리스트 링크. 없으면 링크를 안 붙인다 |
+| `purge_completed` | | `list-sync.py` | 완료 항목 삭제 여부. **기본 `false`** |
+
+`purge_completed`를 켤 이유는 거의 없다. todo_mode가 완료 항목을 네이티브로 접어 숨기므로
+지울 필요가 없고, 켜두면 사용자가 "확인차" 체크한 것까지 다음 실행에 사라져 놀란다.
+
+### 안 쓸 때
+
+설정 파일이 없으면 `list-sync.py`는 **건너뜀으로 처리하고 0으로 끝난다**(실패가 아니다).
+이 기능을 쓰지 않는 맥에서 브리핑이 실패로 보이지 않게 하려는 것이다.
+
+### 확인
+
+```sh
+grep -E 'list-sync|리스트 동기화' briefing/logs/$(date +%F).log
+```
+`list-sync: 완료정리 N건 · 신규 N건 · 이월 N건` 이 성공. 뒤에 `· 실패 N건`이 붙으면 일부
+항목이 안 들어간 것이고, 러너도 그 실행을 `!! 리스트 동기화 실패`로 남긴다(브리핑 DM 자체는
+이미 발송된 뒤라 브리핑은 성공으로 끝난다).
 
 ## 실측 (2026-07-20)
 
@@ -229,3 +284,7 @@ launchd는 요일만 안다. 연가와 공휴일은 **프롬프트가 캘린더�
 - **맥이 자고 있으면** 08:00에 안 돌고 깨어난 뒤 실행된다.
 - monday 커넥터는 claude.ai 인증에 의존한다. 토큰이 만료되면 monday 섹션만 빠지고
   누락으로 표시된다.
+- **리스트 항목 매칭이 이름 정확 일치다.** 어제 이월된 항목과 오늘 블록의 항목을
+  문자열로 비교하므로, 모델이 같은 할 일을 다른 표현으로 쓰면 이월된 항목 옆에 중복이
+  하나 더 생긴다. `prompt.md` 단계 G가 "매번 문구를 바꾸지 마십시오"로 완화하고 있지만
+  모델 출력이라 보장은 아니다. 리스트에 ID를 심을 수 없으니 구조적으로 남는 한계다.
