@@ -39,22 +39,28 @@
 ## 검증
 
 ```
-# 러너가 토큰을 집는지 (dry: 인증 라인만 확인)
-head -20 ~/dev/calendar-worklog/briefing/run-briefing.sh | grep -A3 CLAUDE_TOKEN_FILE
+# 러너가 토큰을 집는지 (dry: 인증 분기만 확인)
+grep -A6 CLAUDE_TOKEN_FILE ~/dev/calendar-worklog/briefing/run-briefing.sh
 
 # 실제 1회 실행(실제 브리핑 DM 이 감)
 ~/dev/calendar-worklog/briefing/run-briefing.sh
-tail -5 ~/dev/calendar-worklog/briefing/logs/$(date +%F).log
+grep '^인증:' ~/dev/calendar-worklog/briefing/logs/$(date +%F).log
 # → "인증: 브리핑 전용 장기 토큰 사용" 이 보이면 성공
 ```
+
+인증 라인은 로그 리다이렉트 뒤에 찍히므로 **날짜별 로그에 남는다.** 실행마다 어느
+자격증명으로 돌았는지 사후에 확인할 수 있다(전용 토큰인지 대화형 세션 폴백인지).
 
 ## 만료되면 (1년 주기)
 
 토큰은 **발급 1년 뒤 만료**된다. 자동 갱신도, 사전 경고도 없다(공식 문서 확인).
 
-- **감지 한계 주의**: `authcheck.py` 는 *대화형 세션*(`daemon-auth-status.json`)만 본다.
+- **감지 한계 주의**: `authcheck.py` 는 *대화형 세션*의 자격증명(keychain)만 본다.
   장기 토큰 만료는 거기 안 잡힌다 → **브리핑이 실제 실패할 때 `notify.py` 가 잡아** 폰에
   알린다. 즉 만료 당일 아침 브리핑 실패 알림으로 알게 된다(하루 지연).
+  이때 알림 문구는 `/login` 이 아니라 **`setup-token` 재발급 + 파일 교체**를 안내한다
+  (전용 토큰 모드에서 `/login` 은 대화형 세션만 고칠 뿐, 죽은 토큰 파일은 다음 실행에서
+  또 export 되어 브리핑이 계속 실패하기 때문).
 - **선제 대비 권장**: 발급 시 **1년 뒤 캘린더에 "브리핑 토큰 갱신" 일정**을 걸어두면
   만료 전에 재발급할 수 있다.
 - 만료됐으면 위 발급 절차를 다시 1회.

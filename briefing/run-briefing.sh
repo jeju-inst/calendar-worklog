@@ -16,23 +16,27 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/us
 export HOME="${HOME:-/Users/namun}"
 export LANG="en_US.UTF-8"
 
+mkdir -p "$LOGDIR"
+exec >>"$LOG" 2>&1
+echo "=== $(date '+%F %T %Z') 브리핑 시작 ==="
+
 # 브리핑 전용 장기 토큰(claude setup-token 으로 발급)이 있으면 그걸로 인증한다.
 # 이러면 사용자가 평소 쓰는 대화형 claude 로그인(OAuth 세션)이 만료돼도 브리핑은
 # 자기 토큰으로 독립적으로 계속 돈다 — 2026-08-03 처럼 로그인 풀려 브리핑이 통째로
 # 죽는 사고를 근본 예방한다. 토큰 파일이 없으면 기존 OAuth 세션으로 폴백(하위호환).
 #   발급: `claude setup-token` → 출력 토큰을 아래 파일에 저장(chmod 600)
 #   저장: ~/.config/calendar-worklog/claude-token
+# 이 판정은 반드시 위 exec 리다이렉트 *뒤*에 있어야 한다 — 앞에 두면 어느 자격증명으로
+# 돌았는지가 날짜별 로그에 안 남고 launchd stderr 로만 새서, 사후 추적이 불가능해진다.
 CLAUDE_TOKEN_FILE="$HOME/.config/calendar-worklog/claude-token"
+TOKEN_MODE=session   # session | dedicated — 실패 안내 문구를 가르는 값
 if [ -r "$CLAUDE_TOKEN_FILE" ] && [ -s "$CLAUDE_TOKEN_FILE" ]; then
   export CLAUDE_CODE_OAUTH_TOKEN="$(cat "$CLAUDE_TOKEN_FILE")"
+  TOKEN_MODE=dedicated
   echo "인증: 브리핑 전용 장기 토큰 사용(대화형 로그인과 독립)"
 else
   echo "인증: 전용 토큰 없음 — 기존 OAuth 세션 사용(로그인 풀리면 같이 죽음). setup-token 권장."
 fi
-
-mkdir -p "$LOGDIR"
-exec >>"$LOG" 2>&1
-echo "=== $(date '+%F %T %Z') 브리핑 시작 ==="
 
 cd "$REPO" || { echo "FATAL: repo 없음 $REPO"; exit 1; }
 
@@ -103,10 +107,17 @@ if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' ||
   # 조용히 죽지 않는다. 브리핑이 '안 온 것'과 '실패한 것'을 구분할 수 있어야 한다.
   /usr/bin/osascript -e 'display notification "아침 브리핑 생성 실패 — 로그 확인" with title "calendar-worklog"' 2>/dev/null
 
-  # 실패 원인이 claude 로그인(OAuth) 만료면 그걸 특정해 알린다. 이게 제일 잦은 원인이고,
-  # 브리핑뿐 아니라 claude 를 쓰는 루틴 전부가 같이 죽으므로 사람이 바로 재로그인해야 한다.
+  # 실패 원인이 claude 인증이면 그걸 특정해 알린다. 이게 제일 잦은 원인이고,
+  # 브리핑뿐 아니라 claude 를 쓰는 루틴 전부가 같이 죽으므로 사람이 바로 조치해야 한다.
+  # 단 **조치 방법이 인증 모드에 따라 다르다**: 전용 토큰으로 돌고 있었다면 /login 은
+  # 대화형 세션만 고칠 뿐이고, 죽은 토큰 파일은 다음 실행에서 또 export 되어 브리핑은
+  # 계속 실패한다. 그 경우엔 setup-token 재발급 + 파일 교체를 안내해야 한다.
   if printf '%s' "$OUT" | /usr/bin/grep -qiE 'OAuth session expired|Failed to authenticate|Invalid API key|not authenticated'; then
-    MSG="⚠️ 아침 브리핑 실패 — *claude 로그인(OAuth) 만료로 추정*. claude 를 쓰는 루틴이 전부 멈춥니다. 터미널에서 \`claude\` 실행 후 재로그인(/login) 필요. (rc=$RC, $(date '+%F %T'))"
+    if [ "$TOKEN_MODE" = dedicated ]; then
+      MSG="⚠️ 아침 브리핑 실패 — *브리핑 전용 장기 토큰 만료/폐기로 추정*. \`/login\` 으로는 안 고쳐집니다(전용 토큰은 대화형 세션과 별개). 터미널에서 \`claude setup-token\` 재발급 후 \`~/.config/calendar-worklog/claude-token\` 을 새 토큰으로 교체하세요. (rc=$RC, $(date '+%F %T'))"
+    else
+      MSG="⚠️ 아침 브리핑 실패 — *claude 로그인(OAuth) 만료로 추정*. claude 를 쓰는 루틴이 전부 멈춥니다. 터미널에서 \`claude\` 실행 후 재로그인(/login) 필요. (rc=$RC, $(date '+%F %T'))"
+    fi
   else
     MSG="⚠️ 아침 브리핑 실패 (rc=$RC) — 로그 확인: $LOG ($(date '+%F %T'))"
   fi
