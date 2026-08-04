@@ -8,15 +8,20 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
 `lists:write` 로 스크립트가 1회 호출로 항목을 갈아끼우면 된다. 완료 항목은 todo_mode 가
 자동으로 접어 숨긴다.
 
-동기화 규칙 (기본: 이월. 완료정리는 꺼짐)
-  1) 현재 리스트 항목을 **전 페이지** 읽는다(커서 끝까지).
-  2) `purge_completed` 가 켜져 있으면 완료된 항목을 삭제한다. **기본은 꺼짐.**
-  3) 남은 항목 이름을 집합으로 둔다 → **이월**(어제 못 끝낸 것·사용자가 손수 넣은 것 보존).
-  4) 입력(오늘 할 일)에서 **이미 있는 이름이 아닌 것만 추가**한다(중복 방지).
-     - 마감일이 지정돼 있으면 todo_due_date 컬럼에 함께 세팅.
-  5) 대상 사용자에게 접근권을 보장(idempotent).
+동기화 모드 (config 의 sync_mode, 기본 "replace")
+  - **"replace" (기본, 1회용 일일 리뷰)**: 매일 아침 기존 항목을 **전부 지우고** 오늘 것만
+    새로 채운다. 누적 0, 링크 고정, 그날 할 일만. 지속·헤비 관리는 monday 가 하므로
+    이월하지 않는다(완료 히스토리도 안 남긴다 — 가볍게 쓰고 버린다). 단, **입력이 비면
+    지우지 않는다** — 빈 입력으로 리스트를 실수로 비우는 사고를 막는다.
+  - "carryover": 기존 항목을 남기고(이월) **없는 이름만 추가**(중복 방지). `purge_completed`
+    가 켜져 있으면 완료 항목만 정리. 이 리스트를 지속 트래커로 쓰고 싶을 때.
 
-입력이 비어 있어도(할 일 없는 날) 1·2·5 유지보수는 그대로 돈다 — 추가만 건너뛴다.
+공통 절차
+  1) 현재 리스트 항목을 **전 페이지** 읽는다(커서 끝까지).
+  2) 모드에 따라 삭제(replace=전부 / carryover+purge=완료만 / 그 외=없음).
+  3) 남은 이름을 집합으로 → 중복 추가 방지(replace 는 다 지웠으니 오늘 것 전부 추가).
+  4) 오늘 할 일 중 리스트에 없는 것만 추가 + 마감일 세팅.
+  5) 대상 사용자에게 접근권을 보장(idempotent).
 
 입력 형식 (stdin, 한 줄 = 한 항목; 빈 줄 무시):
     웍스 폴더 정리 → 원장실 보고 | due:2026-08-04
@@ -170,7 +175,8 @@ def main():
     LIST = cfg["list_id"]
     NAME = cfg["name_column_id"]
     DUE = cfg.get("due_column_id")
-    purge = cfg.get("purge_completed", False)   # 기본 꺼짐 — 아래 2) 주석 참조
+    mode = str(cfg.get("sync_mode", "replace")).lower()   # replace(기본) | carryover
+    purge = cfg.get("purge_completed", False)   # carryover 에서만 의미
     share_user = cfg.get("share_user_id")
 
     # 입력이 비어도 멈추지 않는다 — 할 일이 없는 날에도 완료정리·공유보장은 돌아야 한다.
@@ -189,27 +195,32 @@ def main():
         name, done = item_fields(it)
         cur.append({"id": it["id"], "name": name, "done": done})
 
-    # 2) (선택) 완료 항목 정리 — 기본 꺼짐.
-    # todo_mode 는 완료 항목을 네이티브로 접어 숨기므로 삭제할 필요가 없다. 오히려 켜두면
-    # 사용자가 "확인차" 체크한 것까지 다음 실행에 사라져 놀란다. 정말 데이터를 비우고
-    # 싶을 때만 config 의 purge_completed 를 true 로.
-    purged = 0
-    purged_ids = set()
-    if purge:
-        done_ids = [c["id"] for c in cur if c["done"]]
-        if done_ids:
-            rr = api(token, "slackLists.items.deleteMultiple",
-                     {"list_id": LIST, "ids": done_ids})
-            if rr.get("ok"):
-                purged = len(done_ids)
-                purged_ids = set(done_ids)
-            else:
-                warn(f"완료항목 삭제 실패 — {rr.get('error')}")
-                failed += 1
+    # 2) 모드에 따라 기존 항목을 삭제한다.
+    #   replace  — 전부 지운다(1회용 일일 리뷰). 단 **입력이 비면 안 지운다** — 빈 입력으로
+    #              리스트를 통째로 날리는 사고를 막는다. (러너도 빈 블록이면 아예 호출 안 함.)
+    #   carryover + purge_completed — 완료된 것만 정리(todo_mode 가 이미 접어 숨기므로 선택).
+    #   carryover(그 외) — 아무것도 안 지운다(이월).
+    if mode == "replace":
+        del_ids = [c["id"] for c in cur] if items else []
+    elif purge:
+        del_ids = [c["id"] for c in cur if c["done"]]
+    else:
+        del_ids = []
+    deleted, deleted_ids = 0, set()
+    for i in range(0, len(del_ids), 100):       # deleteMultiple 배치 보호(replace 는 보통 소량)
+        chunk = del_ids[i:i + 100]
+        rr = api(token, "slackLists.items.deleteMultiple",
+                 {"list_id": LIST, "ids": chunk})
+        if rr.get("ok"):
+            deleted += len(chunk)
+            deleted_ids.update(chunk)
+        else:
+            warn(f"항목 삭제 실패({len(chunk)}건) — {rr.get('error')}")
+            failed += 1
 
-    # 3) 남아있는 항목 이름 집합 — 이월·중복방지 기준.
-    # 완료 항목도 (삭제하지 않았다면) 포함한다 → 완료한 걸 다음날 다시 안 만든다.
-    existing = {c["name"].strip() for c in cur if c["id"] not in purged_ids}
+    # 3) 남아있는 항목 이름 집합 — 중복 추가 방지 기준.
+    #    replace 는 방금 다 지웠으니 보통 비어 있어 오늘 것 전부가 새로 들어간다.
+    existing = {c["name"].strip() for c in cur if c["id"] not in deleted_ids}
     carried = len(existing)
 
     # 4) 새 항목만 추가
@@ -263,7 +274,7 @@ def main():
             warn(f"공유 설정 실패 — {ar.get('error')}")
             failed += 1
 
-    print(f"list-sync: 완료정리 {purged}건 · 신규 {added}건 · 이월 {carried}건"
+    print(f"list-sync: [{mode}] 삭제 {deleted}건 · 신규 {added}건 · 유지 {carried}건"
           + (f" · 실패 {failed}건" if failed else ""))
     return 1 if failed else 0
 

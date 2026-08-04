@@ -86,7 +86,8 @@ Slack 서버에 저장되므로 **우리 쪽 상시 서버가 필요 없다** �
 Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
 
 동작 순서: 모델이 `TODO_LIST_START/END` 블록을 stdout에 냄 → 러너가 `awk`로 뽑아
-`list-sync.py`에 stdin으로 넘김 → 기존 항목은 **이월**하고 없는 이름만 추가한다.
+`list-sync.py`에 stdin으로 넘김 → **매일 리스트를 오늘 블록으로 통째 교체한다**(기본
+`replace`, 1회용 일일 리뷰). 지속·헤비 일정 관리는 monday가 하므로 이월하지 않는다.
 
 ### 설정 (레포 밖)
 
@@ -102,10 +103,13 @@ Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
 | `due_column_id` | | `list-sync.py` | 마감일 컬럼. 없으면 `due:`를 무시한다 |
 | `share_user_id` | | `list-sync.py` | 매 실행 쓰기 권한을 보장할 사용자 (`U…`) |
 | `list_url` | | `run-briefing.sh` | DM 맨 끝에 붙일 리스트 링크. 없으면 링크를 안 붙인다 |
-| `purge_completed` | | `list-sync.py` | 완료 항목 삭제 여부. **기본 `false`** |
+| `sync_mode` | | `list-sync.py` | `replace`(**기본**, 1회용 매일 교체) / `carryover`(이월) |
+| `purge_completed` | | `list-sync.py` | `carryover`에서 완료 항목 삭제 여부. **기본 `false`** |
 
-`purge_completed`를 켤 이유는 거의 없다. todo_mode가 완료 항목을 네이티브로 접어 숨기므로
-지울 필요가 없고, 켜두면 사용자가 "확인차" 체크한 것까지 다음 실행에 사라져 놀란다.
+`sync_mode`는 기본 `replace` — 매일 오늘 것만 남기고 어제 것은 지운다(누적 0, 링크 고정,
+그날 할 일만). 단 입력 블록이 비면 지우지 않는다(실수 방지). 이 리스트를 지속 트래커로
+쓰고 싶으면 `carryover`로 바꾼다 — 그때만 `purge_completed`가 의미가 있고(완료만 정리),
+켤 이유는 거의 없다(todo_mode가 완료를 네이티브로 접어 숨기고, 켜두면 확인차 체크한 것까지 사라진다).
 
 ### 안 쓸 때
 
@@ -117,7 +121,7 @@ Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
 ```sh
 grep -E 'list-sync|리스트 동기화' briefing/logs/$(date +%F).log
 ```
-`list-sync: 완료정리 N건 · 신규 N건 · 이월 N건` 이 성공. 뒤에 `· 실패 N건`이 붙으면 일부
+`list-sync: [replace] 삭제 N건 · 신규 N건 · 유지 N건` 이 성공. 뒤에 `· 실패 N건`이 붙으면 일부
 항목이 안 들어간 것이고, 러너도 그 실행을 `!! 리스트 동기화 실패`로 남긴다(브리핑 DM 자체는
 이미 발송된 뒤라 브리핑은 성공으로 끝난다).
 
