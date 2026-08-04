@@ -176,6 +176,54 @@ def parse_input(raw):
     return out
 
 
+SNAPSHOT_STATE = os.path.join(CFG_DIR, "todo-last-snapshot.json")
+
+
+def compact_due(due):
+    """'YYYY-MM-DD' → '  _~M/D_'. 파싱 실패면 빈 문자열."""
+    try:
+        p = due.split("-")
+        return f"  _~{int(p[1])}/{int(p[2])}_"
+    except Exception:
+        return ""
+
+
+def render_plan(day, items, done_texts, list_url):
+    """계획 스냅샷 메시지 텍스트. done_texts 에 든 항목 text 는 제목에 취소선(~..~ ✅).
+
+    day: datetime.date. items: [(text, due, note)]. 최초 게시 때는 done_texts 가 비어 있고,
+    다음날 완료 반영 때는 리스트에서 체크된 항목 text 집합이 들어와 그 줄을 취소선 처리한다.
+    """
+    wd = "월화수목금토일"[day.weekday()]
+    lines = [f"*📋 오늘 할 일 — {day.month}/{day.day} ({wd})*", ""]
+    for i, (text, due, note) in enumerate(items, 1):
+        d = compact_due(due) if due else ""
+        if text.strip() in done_texts:
+            lines.append(f"*{i}.* ~{text}~ ✅{d}")
+        else:
+            lines.append(f"*{i}.* {text}{d}")
+        if note:
+            lines.append(f"      ↳ {note}")
+    if list_url:
+        lines += ["", f"📋 리스트에서 체크: {list_url}"]
+    return "\n".join(lines)
+
+
+def read_snapshot_state():
+    """직전에 올린 계획 메시지 상태(채널·ts·날짜·항목). 없으면 None."""
+    try:
+        return json.load(open(SNAPSHOT_STATE))
+    except Exception:
+        return None
+
+
+def write_snapshot_state(state):
+    try:
+        json.dump(state, open(SNAPSHOT_STATE, "w"), ensure_ascii=False)
+    except Exception as e:
+        warn(f"스냅샷 상태 저장 실패 — {e}")
+
+
 def main():
     cfg = read_config()
     if cfg is None:
@@ -211,25 +259,29 @@ def main():
         name, done = item_fields(it)
         cur.append({"id": it["id"], "name": name, "done": done})
 
-    # 1.5) 마감 스냅샷 — 리스트를 **지우기 전에** 그날 한 것/못 한 것을 박제한다.
-    # replace 는 곧 리스트를 비우므로 완료 체크 기록이 사라진다. 그 직전에, 완료 항목은
-    # ~취소선~ 으로 그어 "무엇을 끝냈나"를 히스토리로 남긴다. (리스트를 안 지우는
-    # carryover 는 리스트 자체가 기록이라 마감 스냅샷을 내지 않는다.)
-    closing_posted = False
-    if post_history and history_target and cur and mode == "replace":
-        done_n = sum(1 for c in cur if c["done"])
-        lines = [f"*📋 지난 할 일 마감 — ✅ {done_n} / ⬜ {len(cur) - done_n}*", ""]
-        for c in cur:
-            nm = c["name"].strip()
-            lines.append(f"✅ ~{nm}~" if c["done"] else f"⬜ {nm}")
-        cr = api(token, "chat.postMessage",
-                 {"channel": history_target, "text": "\n".join(lines),
-                  "username": "일정관리봇", "icon_emoji": ":spiral_calendar_pad:"})
-        if cr.get("ok"):
-            closing_posted = True
-        else:
-            warn(f"마감 스냅샷 게시 실패 — {cr.get('error')}")
-            failed += 1
+    # 1.5) 전날 계획 메시지에 완료 취소선 반영 (in-place chat.update).
+    # 어제 아침 올린 계획 메시지의 각 항목 중, 어제 리스트에서 완료 체크된 것을 ~취소선~ 으로
+    # 그어 그 메시지를 그대로 수정한다. replace 로 리스트를 비우기 직전에 리스트의 완료 상태를
+    # 읽어 반영하는 것 — 서버 없이 "체크된 항목이 취소선으로 표시"되는 유일한 시점이다
+    # (실시간 아님, 다음 동기화 때 1회 반영). carryover 는 리스트가 남으니 하지 않는다.
+    updated_prev = False
+    prev = read_snapshot_state()
+    if post_history and mode == "replace" and prev and prev.get("ts") and prev.get("channel"):
+        done_texts = {c["name"].strip() for c in cur if c["done"]}
+        try:
+            prev_day = datetime.date.fromisoformat(prev.get("date"))
+        except Exception:
+            prev_day = datetime.date.today()
+        prev_items = [tuple(x) for x in prev.get("items", [])]
+        if prev_items:
+            text = render_plan(prev_day, prev_items, done_texts, prev.get("list_url"))
+            ur = api(token, "chat.update",
+                     {"channel": prev["channel"], "ts": prev["ts"], "text": text})
+            if ur.get("ok"):
+                updated_prev = True
+            else:
+                warn(f"전날 계획 메시지 완료반영 실패 — {ur.get('error')}")
+                failed += 1
 
     # 2) 모드에 따라 기존 항목을 삭제한다.
     #   replace  — 전부 지운다(1회용 일일 리뷰). 단 **입력이 비면 안 지운다** — 빈 입력으로
@@ -310,43 +362,36 @@ def main():
             warn(f"공유 설정 실패 — {ar.get('error')}")
             failed += 1
 
-    # 6) 문장 스냅샷 게시(히스토리). replace 는 리스트를 매일 비우므로, 그날 할 일의 문장
-    # 버전을 별도 DM(일정관리봇)으로 남겨 append-only 기록을 만든다 — 리스트가 비어도
-    # 히스토리는 남는다. **중장기: 전사 업무현황 집계의 소스**가 될 형태라, 날짜·항목·기한이
-    # 파싱 가능하게 고정 포맷으로 남긴다(제목 `📋 오늘 할 일 — M/D (요일)`, `N. 내용  ~M/D`).
+    # 6) 오늘 계획 스냅샷 게시(히스토리). 그날 할 일 + note 설명 + 리스트 링크를 일정관리봇
+    # DM 으로 남긴다. **다음 동기화 때 이 메시지를 chat.update 로 수정해 완료 취소선을 반영**
+    # 하므로, 채널·ts·항목을 상태파일에 저장해 둔다. replace 는 리스트를 비우니 이 메시지가
+    # append-only 기록이 된다. (중장기 전사 업무현황 집계 소스로 쓸 고정 포맷.)
     if post_history and items and history_target:
         today = datetime.date.today()
-        wd = "월화수목금토일"[today.weekday()]
-
-        def compact_due(due):
-            try:
-                p = due.split("-")
-                return f"  _~{int(p[1])}/{int(p[2])}_"
-            except Exception:
-                return ""
-
-        # 각 항목을 제목 + 설명(note) 2줄로 — 브리핑 프로세처럼 "왜/맥락"이 보이게.
-        lines = [f"*📋 오늘 할 일 — {today.month}/{today.day} ({wd})*", ""]
-        for i, (text, due, note) in enumerate(items, 1):
-            lines.append(f"*{i}.* {text}{compact_due(due) if due else ''}")
-            if note:
-                lines.append(f"      ↳ {note}")
-        if list_url:
-            lines += ["", f"📋 리스트에서 체크: {list_url}"]
+        text = render_plan(today, items, set(), list_url)   # 최초 게시: 아직 완료 없음
         hr = api(token, "chat.postMessage",
-                 {"channel": history_target, "text": "\n".join(lines),
+                 {"channel": history_target, "text": text,
                   "username": "일정관리봇", "icon_emoji": ":spiral_calendar_pad:"})
-        if not hr.get("ok"):
-            warn(f"히스토리 스냅샷 게시 실패 — {hr.get('error')}")
+        if hr.get("ok"):
+            # channel 은 응답이 준 실제 채널 id(D…) 를 쓴다 — 다음날 chat.update 대상.
+            write_snapshot_state({
+                "channel": hr.get("channel") or history_target,
+                "ts": hr.get("ts"),
+                "date": today.isoformat(),
+                "items": [list(x) for x in items],
+                "list_url": list_url,
+            })
+        else:
+            warn(f"계획 스냅샷 게시 실패 — {hr.get('error')}")
             failed += 1
 
-    snaps = []
-    if closing_posted:
-        snaps.append("마감")
+    marks = []
+    if updated_prev:
+        marks.append("전날완료반영")
     if post_history and items and history_target:
-        snaps.append("계획")
+        marks.append("오늘계획")
     print(f"list-sync: [{mode}] 삭제 {deleted}건 · 신규 {added}건 · 유지 {carried}건"
-          + (f" · 스냅샷({'+'.join(snaps)})" if snaps else "")
+          + (f" · 스냅샷({'+'.join(marks)})" if marks else "")
           + (f" · 실패 {failed}건" if failed else ""))
     return 1 if failed else 0
 
