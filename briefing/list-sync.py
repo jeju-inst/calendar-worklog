@@ -22,6 +22,9 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
   3) 남은 이름을 집합으로 → 중복 추가 방지(replace 는 다 지웠으니 오늘 것 전부 추가).
   4) 오늘 할 일 중 리스트에 없는 것만 추가 + 마감일 세팅.
   5) 대상 사용자에게 접근권을 보장(idempotent).
+  6) `post_history`(기본 켜짐)면 그날 할 일의 **문장 스냅샷**을 일정관리봇 DM 으로 게시한다.
+     replace 는 리스트를 비우므로, 이 스냅샷이 append-only 히스토리가 된다(리스트 링크가
+     아니라 그날 내용 자체를 남긴다). 중장기 전사 업무현황 집계 소스로 쓸 수 있게 고정 포맷.
 
 입력 형식 (stdin, 한 줄 = 한 항목; 빈 줄 무시):
     웍스 폴더 정리 → 원장실 보고 | due:2026-08-04
@@ -38,6 +41,7 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
   1  실패: 토큰 없음, 설정 깨짐, API 오류, **항목 추가·마감일 세팅 일부 실패**.
      일부만 실패해도 0을 내면 러너가 "동기화 완료"로 보고해 빠진 할 일이 묻힌다.
 """
+import datetime
 import json
 import os
 import sys
@@ -178,6 +182,8 @@ def main():
     mode = str(cfg.get("sync_mode", "replace")).lower()   # replace(기본) | carryover
     purge = cfg.get("purge_completed", False)   # carryover 에서만 의미
     share_user = cfg.get("share_user_id")
+    post_history = cfg.get("post_history", True)          # 그날 문장 스냅샷을 DM 으로 남길지
+    history_target = cfg.get("history_target") or share_user
 
     # 입력이 비어도 멈추지 않는다 — 할 일이 없는 날에도 완료정리·공유보장은 돌아야 한다.
     items = parse_input(sys.stdin.read())
@@ -274,7 +280,33 @@ def main():
             warn(f"공유 설정 실패 — {ar.get('error')}")
             failed += 1
 
+    # 6) 문장 스냅샷 게시(히스토리). replace 는 리스트를 매일 비우므로, 그날 할 일의 문장
+    # 버전을 별도 DM(일정관리봇)으로 남겨 append-only 기록을 만든다 — 리스트가 비어도
+    # 히스토리는 남는다. **중장기: 전사 업무현황 집계의 소스**가 될 형태라, 날짜·항목·기한이
+    # 파싱 가능하게 고정 포맷으로 남긴다(제목 `📋 오늘 할 일 — M/D (요일)`, `N. 내용  ~M/D`).
+    if post_history and items and history_target:
+        today = datetime.date.today()
+        wd = "월화수목금토일"[today.weekday()]
+
+        def compact_due(due):
+            try:
+                p = due.split("-")
+                return f"  _~{int(p[1])}/{int(p[2])}_"
+            except Exception:
+                return ""
+
+        lines = [f"*📋 오늘 할 일 — {today.month}/{today.day} ({wd})*"]
+        for i, (text, due) in enumerate(items, 1):
+            lines.append(f"{i}. {text}{compact_due(due) if due else ''}")
+        hr = api(token, "chat.postMessage",
+                 {"channel": history_target, "text": "\n".join(lines),
+                  "username": "일정관리봇", "icon_emoji": ":spiral_calendar_pad:"})
+        if not hr.get("ok"):
+            warn(f"히스토리 스냅샷 게시 실패 — {hr.get('error')}")
+            failed += 1
+
     print(f"list-sync: [{mode}] 삭제 {deleted}건 · 신규 {added}건 · 유지 {carried}건"
+          + (f" · 히스토리 게시" if (post_history and items and history_target) else "")
           + (f" · 실패 {failed}건" if failed else ""))
     return 1 if failed else 0
 

@@ -105,11 +105,18 @@ Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
 | `list_url` | | `run-briefing.sh` | DM 맨 끝에 붙일 리스트 링크. 없으면 링크를 안 붙인다 |
 | `sync_mode` | | `list-sync.py` | `replace`(**기본**, 1회용 매일 교체) / `carryover`(이월) |
 | `purge_completed` | | `list-sync.py` | `carryover`에서 완료 항목 삭제 여부. **기본 `false`** |
+| `post_history` | | `list-sync.py` | 그날 문장 스냅샷을 DM으로 남길지. **기본 `true`** |
+| `history_target` | | `list-sync.py` | 스냅샷 게시 대상(`U…`/`C…`). 없으면 `share_user_id` |
 
 `sync_mode`는 기본 `replace` — 매일 오늘 것만 남기고 어제 것은 지운다(누적 0, 링크 고정,
 그날 할 일만). 단 입력 블록이 비면 지우지 않는다(실수 방지). 이 리스트를 지속 트래커로
 쓰고 싶으면 `carryover`로 바꾼다 — 그때만 `purge_completed`가 의미가 있고(완료만 정리),
 켤 이유는 거의 없다(todo_mode가 완료를 네이티브로 접어 숨기고, 켜두면 확인차 체크한 것까지 사라진다).
+
+`replace`는 매일 리스트를 비우므로 그날 기록이 남지 않는다. 그래서 `post_history`(기본 켜짐)가
+동기화할 때 **그날 할 일의 문장 스냅샷**을 일정관리봇 DM으로 함께 게시한다 — 리스트=오늘의
+작업판(교체됨), 스냅샷=append-only 히스토리. 포맷은 `📋 오늘 할 일 — M/D (요일)` + `N. 내용  ~M/D`로
+날짜·항목·기한이 파싱 가능하게 고정한다(**중장기: 전사 업무현황 집계의 소스**로 쓸 형태).
 
 ### 안 쓸 때
 
