@@ -44,6 +44,11 @@ for f in briefing/prompt.md core/prompt.md core/user-config.yaml; do
   [ -r "$f" ] || { echo "FATAL: 읽을 수 없음 $f"; exit 1; }
 done
 
+# 오늘 할 일 리스트 링크(담당자숨김 뷰). 레포엔 안 박고 런타임 설정에서 읽어 DM 말미에 붙인다.
+LIST_URL=$(/usr/bin/python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.config/calendar-worklog/todo-list.json"))).get("list_url",""))' 2>/dev/null || true)
+LIST_LINE=""
+[ -n "$LIST_URL" ] && LIST_LINE="- 브리핑 DM **맨 끝 줄**에 오늘 할 일 리스트 링크를 답니다: \`📋 오늘 할 일 → $LIST_URL\`"
+
 # 프롬프트 조립: 브리핑 워크플로 + 사용자 설정(캘린더 ID 등)을 한 번에 먹인다.
 # core/prompt.md 전체는 넣지 않는다 — 사후 기록 워크플로라 브리핑엔 불필요하고,
 # 캘린더 쓰기 지침이 섞이면 "읽기 전용" 계약이 흐려진다.
@@ -74,6 +79,7 @@ $(cat core/user-config.yaml)
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
 - 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
   메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
+$LIST_LINE
 - 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
   \`BRIEFING_FAILED: <사유>\` 셋 중 **정확히 하나**를 한 줄로 남긴다.
   나머지 두 토큰은 사유 설명에도 쓰지 마라 — 러너가 상충으로 보고 실패 처리한다.
@@ -139,6 +145,23 @@ fi
 
 # 여기 오면 KINDS = BRIEFING_SENT 단독.
 echo "=== $(date '+%F %T') 브리핑 완료 ==="
+
+# 오늘 할 일 리스트 동기화 — 모델이 낸 TODO 블록을 뽑아 list-sync.py 로 넘긴다.
+# 성공(SENT) 실행에서만 리스트를 건드린다. 실패해도 브리핑 자체는 이미 성공이므로
+# 여기서 죽지 않는다(비차단).
+# 판정 기준은 "블록 내용이 있나"가 아니라 **"블록이 있나"** 다 — 할 일이 없는 날에도
+# 모델은 빈 블록을 내게 되어 있고(prompt.md 단계 G), 그런 날에도 완료정리·공유보장 같은
+# 유지보수는 돌아야 한다. 블록 자체가 없는 실행(건너뜀 등)만 조용히 지나간다.
+TODO=$(printf '%s\n' "$OUT" | /usr/bin/awk '/TODO_LIST_START/{f=1;next} /TODO_LIST_END/{f=0} f')
+if printf '%s' "$OUT" | /usr/bin/grep -q 'TODO_LIST_START'; then
+  if printf '%s\n' "$TODO" | /usr/bin/python3 "$REPO/briefing/list-sync.py" >>"$LOG" 2>&1; then
+    echo "오늘 할 일 리스트 동기화 완료"
+  else
+    echo "!! 리스트 동기화 실패 (브리핑 자체는 성공) — 로그 확인"
+  fi
+else
+  echo "TODO 블록 없음 — 리스트 동기화 건너뜀"
+fi
 
 # 로그는 30일치만 유지
 /usr/bin/find "$LOGDIR" -name '*.log' -mtime +30 -delete 2>/dev/null
