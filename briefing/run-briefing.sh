@@ -148,9 +148,12 @@ echo "=== $(date '+%F %T') 브리핑 완료 ==="
 
 # 오늘 할 일 리스트 동기화 — 모델이 낸 TODO 블록을 뽑아 list-sync.py 로 넘긴다.
 # 성공(SENT) 실행에서만 리스트를 건드린다. 실패해도 브리핑 자체는 이미 성공이므로
-# 여기서 죽지 않는다(비차단). 블록이 없으면 조용히 건너뛴다.
+# 여기서 죽지 않는다(비차단).
+# 판정 기준은 "블록 내용이 있나"가 아니라 **"블록이 있나"** 다 — 할 일이 없는 날에도
+# 모델은 빈 블록을 내게 되어 있고(prompt.md 단계 G), 그런 날에도 완료정리·공유보장 같은
+# 유지보수는 돌아야 한다. 블록 자체가 없는 실행(건너뜀 등)만 조용히 지나간다.
 TODO=$(printf '%s\n' "$OUT" | /usr/bin/awk '/TODO_LIST_START/{f=1;next} /TODO_LIST_END/{f=0} f')
-if printf '%s' "$TODO" | /usr/bin/grep -q '[^[:space:]]'; then
+if printf '%s' "$OUT" | /usr/bin/grep -q 'TODO_LIST_START'; then
   if printf '%s\n' "$TODO" | /usr/bin/python3 "$REPO/briefing/list-sync.py" >>"$LOG" 2>&1; then
     echo "오늘 할 일 리스트 동기화 완료"
   else
