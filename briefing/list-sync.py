@@ -17,14 +17,16 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
     가 켜져 있으면 완료 항목만 정리. 이 리스트를 지속 트래커로 쓰고 싶을 때.
 
 공통 절차
-  1) 현재 리스트 항목을 **전 페이지** 읽는다(커서 끝까지).
+  1) 현재 리스트 항목을 **전 페이지** 읽는다(커서 끝까지) — 완료 체크 상태 포함.
+  1.5) (replace) **마감 스냅샷**: 지우기 전에 한 것(~취소선~)/못 한 것을 DM 으로 박제한다.
+       리스트를 비우면 완료 기록이 사라지므로 그 직전에 남긴다.
   2) 모드에 따라 삭제(replace=전부 / carryover+purge=완료만 / 그 외=없음).
   3) 남은 이름을 집합으로 → 중복 추가 방지(replace 는 다 지웠으니 오늘 것 전부 추가).
   4) 오늘 할 일 중 리스트에 없는 것만 추가 + 마감일 세팅.
   5) 대상 사용자에게 접근권을 보장(idempotent).
-  6) `post_history`(기본 켜짐)면 그날 할 일의 **문장 스냅샷**을 일정관리봇 DM 으로 게시한다.
-     replace 는 리스트를 비우므로, 이 스냅샷이 append-only 히스토리가 된다(리스트 링크가
-     아니라 그날 내용 자체를 남긴다). 중장기 전사 업무현황 집계 소스로 쓸 수 있게 고정 포맷.
+  6) `post_history`(기본 켜짐)면 **오늘 계획 스냅샷**(그날 할 일 + note 설명 + 리스트 링크)을
+     일정관리봇 DM 으로 게시한다. 1.5 의 마감 + 6 의 계획이 매일 append-only 히스토리가 된다
+     (리스트가 비어도 남는다). 중장기 전사 업무현황 집계 소스로 쓸 수 있게 고정 포맷.
 
 입력 형식 (stdin, 한 줄 = 한 항목; 빈 줄 무시):
     서귀포축제 보고서 확인·수정 → 디자인오투 발송 | due:2026-08-04 | note:이중화 박사가 E-2·E-3 2건 확인 요청, 확인 후 메일 발송 (그가 대기 중)
@@ -209,6 +211,26 @@ def main():
         name, done = item_fields(it)
         cur.append({"id": it["id"], "name": name, "done": done})
 
+    # 1.5) 마감 스냅샷 — 리스트를 **지우기 전에** 그날 한 것/못 한 것을 박제한다.
+    # replace 는 곧 리스트를 비우므로 완료 체크 기록이 사라진다. 그 직전에, 완료 항목은
+    # ~취소선~ 으로 그어 "무엇을 끝냈나"를 히스토리로 남긴다. (리스트를 안 지우는
+    # carryover 는 리스트 자체가 기록이라 마감 스냅샷을 내지 않는다.)
+    closing_posted = False
+    if post_history and history_target and cur and mode == "replace":
+        done_n = sum(1 for c in cur if c["done"])
+        lines = [f"*📋 지난 할 일 마감 — ✅ {done_n} / ⬜ {len(cur) - done_n}*", ""]
+        for c in cur:
+            nm = c["name"].strip()
+            lines.append(f"✅ ~{nm}~" if c["done"] else f"⬜ {nm}")
+        cr = api(token, "chat.postMessage",
+                 {"channel": history_target, "text": "\n".join(lines),
+                  "username": "일정관리봇", "icon_emoji": ":spiral_calendar_pad:"})
+        if cr.get("ok"):
+            closing_posted = True
+        else:
+            warn(f"마감 스냅샷 게시 실패 — {cr.get('error')}")
+            failed += 1
+
     # 2) 모드에 따라 기존 항목을 삭제한다.
     #   replace  — 전부 지운다(1회용 일일 리뷰). 단 **입력이 비면 안 지운다** — 빈 입력으로
     #              리스트를 통째로 날리는 사고를 막는다. (러너도 빈 블록이면 아예 호출 안 함.)
@@ -318,8 +340,13 @@ def main():
             warn(f"히스토리 스냅샷 게시 실패 — {hr.get('error')}")
             failed += 1
 
+    snaps = []
+    if closing_posted:
+        snaps.append("마감")
+    if post_history and items and history_target:
+        snaps.append("계획")
     print(f"list-sync: [{mode}] 삭제 {deleted}건 · 신규 {added}건 · 유지 {carried}건"
-          + (f" · 히스토리 게시" if (post_history and items and history_target) else "")
+          + (f" · 스냅샷({'+'.join(snaps)})" if snaps else "")
           + (f" · 실패 {failed}건" if failed else ""))
     return 1 if failed else 0
 
