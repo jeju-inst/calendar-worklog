@@ -27,10 +27,10 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
      아니라 그날 내용 자체를 남긴다). 중장기 전사 업무현황 집계 소스로 쓸 수 있게 고정 포맷.
 
 입력 형식 (stdin, 한 줄 = 한 항목; 빈 줄 무시):
-    웍스 폴더 정리 → 원장실 보고 | due:2026-08-04
-    0727 홍보 강영준 논의 | due:2026-08-05
-    JAIX 플로우차트 정리
-  `| due:YYYY-MM-DD` 는 선택.  `#` 로 시작하는 줄은 주석.
+    서귀포축제 보고서 확인·수정 → 디자인오투 발송 | due:2026-08-04 | note:이중화 박사가 E-2·E-3 2건 확인 요청, 확인 후 메일 발송 (그가 대기 중)
+    JAIX 플로우차트 정리 | due:2026-08-07
+  `| due:YYYY-MM-DD`, `| note:<맥락 한 줄>` 은 선택(순서 무관). `#` 로 시작하는 줄은 주석.
+  text 는 **리스트 항목(짧게)**, note 는 **히스토리 스냅샷의 설명**(리스트엔 안 들어감).
 
 설정: ~/.config/calendar-worklog/todo-list.json (env TODO_LIST_CONFIG 로 경로 override).
 토큰: notify.py 와 동일(env SLACK_BOT_TOKEN 또는 ~/.config/.../slack-bot-token).
@@ -151,19 +151,26 @@ def rich_text(text):
 
 
 def parse_input(raw):
-    """줄 단위 파싱 → [(text, due_or_None)]."""
+    """줄 단위 파싱 → [(text, due_or_None, note_or_None)].
+
+    형식: `<할 일> | due:YYYY-MM-DD | note:<맥락 한 줄>`  (due·note 순서 무관, 둘 다 선택).
+    text 는 리스트 항목(짧게), note 는 히스토리 스냅샷에만 붙는 설명(왜/출처/차단 여부 등).
+    """
     out = []
-    for line in raw.splitlines():
-        line = line.strip()
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        due = None
-        if "| due:" in line:
-            line, _, d = line.partition("| due:")
-            line = line.strip()
-            due = d.strip() or None
-        if line:
-            out.append((line, due))
+        parts = [p.strip() for p in line.split("|")]
+        text = parts[0].strip()
+        due = note = None
+        for seg in parts[1:]:
+            if seg.startswith("due:"):
+                due = seg[4:].strip() or None
+            elif seg.startswith("note:"):
+                note = seg[5:].strip() or None
+        if text:
+            out.append((text, due, note))
     return out
 
 
@@ -184,6 +191,7 @@ def main():
     share_user = cfg.get("share_user_id")
     post_history = cfg.get("post_history", True)          # 그날 문장 스냅샷을 DM 으로 남길지
     history_target = cfg.get("history_target") or share_user
+    list_url = cfg.get("list_url")                        # 스냅샷 끝에 붙일 리스트 링크
 
     # 입력이 비어도 멈추지 않는다 — 할 일이 없는 날에도 완료정리·공유보장은 돌아야 한다.
     items = parse_input(sys.stdin.read())
@@ -232,7 +240,7 @@ def main():
     # 4) 새 항목만 추가
     added = 0
     name_to_id = None                   # create 응답에 id 가 없을 때 쓸 조회 캐시
-    for text, due in items:
+    for text, due, _note in items:      # note 는 리스트가 아니라 히스토리 스냅샷용
         if text.strip() in existing:
             continue
         rr = api(token, "slackLists.items.create",
@@ -295,9 +303,14 @@ def main():
             except Exception:
                 return ""
 
-        lines = [f"*📋 오늘 할 일 — {today.month}/{today.day} ({wd})*"]
-        for i, (text, due) in enumerate(items, 1):
-            lines.append(f"{i}. {text}{compact_due(due) if due else ''}")
+        # 각 항목을 제목 + 설명(note) 2줄로 — 브리핑 프로세처럼 "왜/맥락"이 보이게.
+        lines = [f"*📋 오늘 할 일 — {today.month}/{today.day} ({wd})*", ""]
+        for i, (text, due, note) in enumerate(items, 1):
+            lines.append(f"*{i}.* {text}{compact_due(due) if due else ''}")
+            if note:
+                lines.append(f"      ↳ {note}")
+        if list_url:
+            lines += ["", f"📋 리스트에서 체크: {list_url}"]
         hr = api(token, "chat.postMessage",
                  {"channel": history_target, "text": "\n".join(lines),
                   "username": "일정관리봇", "icon_emoji": ":spiral_calendar_pad:"})
