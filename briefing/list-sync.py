@@ -242,6 +242,7 @@ def main():
     post_history = cfg.get("post_history", True)          # 그날 문장 스냅샷을 DM 으로 남길지
     history_target = cfg.get("history_target") or share_user
     list_url = cfg.get("list_url")                        # 스냅샷 끝에 붙일 리스트 링크
+    list_title_prefix = cfg.get("list_title_prefix", "오늘의 할 일")  # 매일 제목을 오늘 날짜로
 
     # 입력이 비어도 멈추지 않는다 — 할 일이 없는 날에도 완료정리·공유보장은 돌아야 한다.
     items = parse_input(sys.stdin.read())
@@ -360,6 +361,17 @@ def main():
                  {"list_id": LIST, "access_level": "write", "user_ids": [share_user]})
         if not ar.get("ok"):
             warn(f"공유 설정 실패 — {ar.get('error')}")
+            failed += 1
+
+    # 5.5) 리스트 제목을 오늘 날짜로 갱신 — 리스트는 재사용되므로 갱신 안 하면 제목이 처음
+    # 만든 날짜에 멈춰 "어제 것"처럼 보인다(2026-08-05 피드백). `list_title_prefix` 를 빈 값으로
+    # 두면 갱신하지 않는다(날짜 없는 고정 제목을 쓰고 싶을 때 — 수동으로 한 번 정해두면 됨).
+    if list_title_prefix:
+        t = datetime.date.today()
+        title = f"{list_title_prefix} · {t.month}/{t.day}({'월화수목금토일'[t.weekday()]})"
+        nr = api(token, "slackLists.update", {"id": LIST, "name": title})
+        if not nr.get("ok"):
+            warn(f"리스트 제목 갱신 실패 — {nr.get('error')}")
             failed += 1
 
     # 6) 오늘 계획 스냅샷 게시(히스토리). 그날 할 일 + note 설명 + 리스트 링크를 일정관리봇
