@@ -104,6 +104,7 @@ Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
 | `share_user_id` | | `list-sync.py` | 매 실행 쓰기 권한을 보장할 사용자 (`U…`) |
 | `list_url` | | `run-briefing.sh` | DM 맨 끝에 붙일 리스트 링크. 없으면 링크를 안 붙인다 |
 | `sync_mode` | | `list-sync.py` | `replace`(**기본**, 1회용 매일 교체) / `carryover`(이월) |
+| `list_title_prefix` | | `list-sync.py` | 매 동기화 때 리스트 제목을 `<prefix> · M/D(요일)`로 갱신. **기본 `오늘의 할 일`**. 빈 값이면 제목 갱신 안 함(날짜 없는 고정 제목용) |
 | `purge_completed` | | `list-sync.py` | `carryover`에서 완료 항목 삭제 여부. **기본 `false`** |
 | `post_history` | | `list-sync.py` | 그날 문장 스냅샷을 DM으로 남길지. **기본 `true`** |
 | `history_target` | | `list-sync.py` | 스냅샷 게시 대상(`U…`/`C…`). 없으면 `share_user_id` |
