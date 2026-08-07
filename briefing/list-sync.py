@@ -18,15 +18,17 @@ Slack Lists(todo_mode)는 항목의 완료 상태를 **Slack 서버에 네이티
 
 공통 절차
   1) 현재 리스트 항목을 **전 페이지** 읽는다(커서 끝까지) — 완료 체크 상태 포함.
-  1.5) (replace) **마감 스냅샷**: 지우기 전에 한 것(~취소선~)/못 한 것을 DM 으로 박제한다.
-       리스트를 비우면 완료 기록이 사라지므로 그 직전에 남긴다.
-  2) 모드에 따라 삭제(replace=전부 / carryover+purge=완료만 / 그 외=없음).
-  3) 남은 이름을 집합으로 → 중복 추가 방지(replace 는 다 지웠으니 오늘 것 전부 추가).
-  4) 오늘 할 일 중 리스트에 없는 것만 추가 + 마감일 세팅.
+  1.5) (replace) **전날 계획 메시지 완료반영**: 저장해 둔 어제 계획 DM 을 chat.update 로
+       고쳐, 그 사이 리스트에서 완료 체크된 항목을 ~취소선~ 으로 긋는다(지우기 직전 박제).
+  2) (carryover+purge) 완료 항목만 미리 정리. **replace 는 여기서 안 지운다.**
+  3) 오늘 할 일을 추가한다(+마감일). replace 는 전부 새로, carryover 는 없는 이름만.
+  4) (replace) 추가가 **다 성공하면 그제서야** 옛 항목을 지운다 — 지우고 나서 만들다 실패해
+     리스트가 통째로 비는 사고를 막는다. 입력이 비거나 생성 실패가 있으면 안 지운다.
   5) 대상 사용자에게 접근권을 보장(idempotent).
+  5.5) 리스트 제목을 오늘 날짜로 갱신(`list_title_prefix · M/D(요일)`).
   6) `post_history`(기본 켜짐)면 **오늘 계획 스냅샷**(그날 할 일 + note 설명 + 리스트 링크)을
-     일정관리봇 DM 으로 게시한다. 1.5 의 마감 + 6 의 계획이 매일 append-only 히스토리가 된다
-     (리스트가 비어도 남는다). 중장기 전사 업무현황 집계 소스로 쓸 수 있게 고정 포맷.
+     일정관리봇 DM 으로 게시하고 그 ts 를 저장한다(다음날 1.5 에서 완료반영에 씀). 리스트가
+     비어도 이 DM 이 append-only 히스토리로 남는다. 중장기 전사 업무현황 집계 소스로 쓸 형태.
 
 입력 형식 (stdin, 한 줄 = 한 항목; 빈 줄 무시):
     서귀포축제 보고서 확인·수정 → 디자인오투 발송 | due:2026-08-04 | note:이중화 박사가 E-2·E-3 2건 확인 요청, 확인 후 메일 발송 (그가 대기 중)
@@ -237,6 +239,10 @@ def main():
     NAME = cfg["name_column_id"]
     DUE = cfg.get("due_column_id")
     mode = str(cfg.get("sync_mode", "replace")).lower()   # replace(기본) | carryover
+    if mode not in ("replace", "carryover"):
+        # 오타(예: "replcae")를 조용히 carryover 로 흘리면, 지우려던 리스트가 안 지워지고
+        # 러너엔 "동기화 완료"로 찍힌다. 알 수 없는 값은 명시적으로 실패시킨다.
+        die(f"알 수 없는 sync_mode: '{mode}' — replace|carryover 만 허용")
     purge = cfg.get("purge_completed", False)   # carryover 에서만 의미
     share_user = cfg.get("share_user_id")
     post_history = cfg.get("post_history", True)          # 그날 문장 스냅샷을 DM 으로 남길지
@@ -284,36 +290,38 @@ def main():
                 warn(f"전날 계획 메시지 완료반영 실패 — {ur.get('error')}")
                 failed += 1
 
-    # 2) 모드에 따라 기존 항목을 삭제한다.
-    #   replace  — 전부 지운다(1회용 일일 리뷰). 단 **입력이 비면 안 지운다** — 빈 입력으로
-    #              리스트를 통째로 날리는 사고를 막는다. (러너도 빈 블록이면 아예 호출 안 함.)
-    #   carryover + purge_completed — 완료된 것만 정리(todo_mode 가 이미 접어 숨기므로 선택).
-    #   carryover(그 외) — 아무것도 안 지운다(이월).
-    if mode == "replace":
-        del_ids = [c["id"] for c in cur] if items else []
-    elif purge:
-        del_ids = [c["id"] for c in cur if c["done"]]
-    else:
-        del_ids = []
+    # 2) 삭제/추가 전략을 모드별로 정한다.
+    #   replace  — 오늘 것을 **먼저 만들고**(3), 다 성공하면 **그다음**에 옛 항목을 지운다(4).
+    #              지우고 나서 만들다 실패하면 리스트가 통째로 비는 사고(Codex P1)를 막는다.
+    #   carryover — 옛 항목을 남기고(이월), purge 면 완료된 것만 **여기서** 미리 정리한다.
+    old_ids = [c["id"] for c in cur]
     deleted, deleted_ids = 0, set()
-    for i in range(0, len(del_ids), 100):       # deleteMultiple 배치 보호(replace 는 보통 소량)
-        chunk = del_ids[i:i + 100]
-        rr = api(token, "slackLists.items.deleteMultiple",
-                 {"list_id": LIST, "ids": chunk})
-        if rr.get("ok"):
-            deleted += len(chunk)
-            deleted_ids.update(chunk)
-        else:
-            warn(f"항목 삭제 실패({len(chunk)}건) — {rr.get('error')}")
-            failed += 1
 
-    # 3) 남아있는 항목 이름 집합 — 중복 추가 방지 기준.
-    #    replace 는 방금 다 지웠으니 보통 비어 있어 오늘 것 전부가 새로 들어간다.
-    existing = {c["name"].strip() for c in cur if c["id"] not in deleted_ids}
+    def delete_ids(ids, label):
+        n = 0
+        for i in range(0, len(ids), 100):       # deleteMultiple 배치 보호
+            chunk = ids[i:i + 100]
+            rr = api(token, "slackLists.items.deleteMultiple",
+                     {"list_id": LIST, "ids": chunk})
+            if rr.get("ok"):
+                n += len(chunk)
+                deleted_ids.update(chunk)
+            else:
+                warn(f"{label} 삭제 실패({len(chunk)}건) — {rr.get('error')}")
+                nonlocal failed
+                failed += 1
+        return n
+
+    if mode == "carryover":
+        if purge:
+            deleted += delete_ids([c["id"] for c in cur if c["done"]], "완료항목")
+        existing = {c["name"].strip() for c in cur if c["id"] not in deleted_ids}
+    else:  # replace — 아직 아무것도 안 지운다. 오늘 것을 전부 새로 만든 뒤 4)에서 옛것 삭제.
+        existing = set()
     carried = len(existing)
 
-    # 4) 새 항목만 추가
-    added = 0
+    # 3) 항목 추가 (마감일 포함). replace 는 existing 이 비어 오늘 것 전부가 새로 들어간다.
+    added, create_failed = 0, 0
     name_to_id = None                   # create 응답에 id 가 없을 때 쓸 조회 캐시
     for text, due, _note in items:      # note 는 리스트가 아니라 히스토리 스냅샷용
         if text.strip() in existing:
@@ -325,6 +333,7 @@ def main():
             # 여기서 세어두지 않으면 할 일이 빠진 채로 러너에 "동기화 완료"가 찍힌다.
             warn(f"추가 실패 '{text[:20]}' — {rr.get('error')}")
             failed += 1
+            create_failed += 1
             continue
         added += 1
         existing.add(text.strip())
@@ -354,6 +363,17 @@ def main():
         if not ur.get("ok"):
             warn(f"마감일 세팅 실패 '{text[:20]}' — {ur.get('error')}")
             failed += 1
+
+    # 4) replace: 오늘 것을 다 만든 **뒤에야** 옛 항목을 지운다.
+    #    - 입력이 비면 지우지 않는다(빈 입력으로 리스트를 날리는 사고 방지 — no-task 날엔
+    #      옛 리스트를 남기고 제목·공유만 갱신한다).
+    #    - 생성이 하나라도 실패했으면 지우지 않는다. 옛것을 남겨(오늘 것과 잠시 섞이더라도)
+    #      빈 리스트보다는 낫게 하고, 러너가 실패로 보고해 다음 실행이 정리하게 둔다.
+    if mode == "replace" and items and old_ids:
+        if create_failed == 0:
+            deleted += delete_ids(old_ids, "옛 항목")
+        else:
+            warn(f"생성 {create_failed}건 실패 → 옛 항목 보존(빈 리스트 방지), 다음 실행에서 정리")
 
     # 5) 공유 보장
     if share_user:
