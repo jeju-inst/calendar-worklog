@@ -34,6 +34,7 @@
 | 메시지 읽기 | `msg` / messages-cli (macOS 로컬 전용) | 문자 섹션 생략 |
 | 메시지 검색 | Slack (`slack_search_*`, `slack_read_channel`) | Slack 섹션 생략 |
 | 과제 조회 | monday.com (`get_board_items_page`, `get_updates`) | monday 섹션 생략 |
+| 이어서 할 작업 (내 AI 세션) | `smon export`/`smon` (로컬) | smon 섹션 생략 |
 | 발송 | Slack DM (`slack_send_message`) | 표준출력으로 대체 |
 
 **백엔드 중립 원칙**: 메일은 `mailskill`의 5동사 계약(`accounts/list/search/read/reply`)
@@ -217,6 +218,27 @@ stdout이 비어 있으면 그건 "메일 없음"이 아니라 **호출 실패**
 - `gw` CLI가 있으면 본인 결재 대기함을 조회합니다. 결재 대기는 차단성이 높아
   상위 후보가 되는 경우가 많습니다.
 
+### C-6. 이어서 할 작업 — 내 AI 코딩 세션 (smon) *(가용 시)*
+
+`smon export`(JSON) 또는 `smon`(보드)로 이 맥에서 돌던 AI 코딩 세션(Claude·Codex·
+Antigravity)의 현재 상태를 읽습니다. 이건 "남이 나에게 보낸 것"(메일·Slack·monday)이
+아니라 **내가 벌여놓고 멈춘 내 작업**이라, 다른 소스가 못 잡는 축입니다. 본인 업무 상당수가
+이 도구·과제 작업이므로 실제 업무 미완분인 경우가 많습니다.
+
+**여기엔 시간창을 씌우지 않습니다** — 3일 전 세션도 재개 대상입니다. 대신 아래로 거릅니다.
+`smon export`의 `state`·`phase`·`summary`·`project_path`·`last_event_at`를 봅니다.
+- **담습니다**: `state`가 `NEEDS_ATTENTION`(사용자 조치를 기다림) 또는 `WAITING_INPUT`
+  이면서 `phase`가 `direction`(다음 단계가 남아 멈춤)인 것. summary가 "~ 대기/필요/보류/
+  다음 단계"로 끝나는 것.
+- **뺍니다**: `phase`가 `done`(일단락·완료)이고 summary에 후속(제출·검토·배포·정산 대기
+  등)이 안 보이는 것. **지금 이 브리핑을 돌리는 세션 자신**(project가 `calendar-worklog`,
+  `state`=`RUNNING`). 닷새 이상 방치된 `done`.
+- **상위 2~4개**만. `project_path`로 무슨 작업인지 식별하고(경로 끝 폴더명), summary 한 줄을
+  거의 그대로 살립니다. `NEEDS_ATTENTION`은 특히 우선합니다.
+
+재개 지점이 명확한 축이므로, 단계 E에서 오늘 시각 박힌 일보다는 낮지만 "차단/대기" 성격이면
+상위 후보가 됩니다. 없거나 `smon`이 안 잡히면 이 섹션째 생략하고 단계 F 누락에 적습니다.
+
 ---
 
 ## 단계 D. 액션 아이템 추출
@@ -294,7 +316,11 @@ Slack에서 깨지므로 쓰지 마십시오. 폰에서 읽으므로 짧은 줄,
 *🖊️ 결재 대기* 2건
 • …
 
-_소스: 메일·Slack·monday·캘린더 (문자 없음: 원격 실행)_
+*🧵 이어서 할 작업* (내 AI 세션)
+• [ji-monday-admin] 진행과제 그룹 매핑 10건 해결 — 다음 단계 대기 _(1h·조치필요)_
+• [미래기획 플랫폼] RFP 2차 정본 마무리 — 요청확인 질의 전달 _(3d)_
+
+_소스: 메일·Slack·monday·캘린더·smon (문자 없음: 원격 실행)_
 ```
 
 **복귀 모드일 때는 머리말을 바꿉니다.** 제목 아래 한 줄로 훑은 구간을 밝히고,
