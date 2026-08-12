@@ -1,17 +1,10 @@
 {
-  "_doc": "briefing/README.md 의 '오늘 할 일 리스트 동기화' 참조. 이 파일을 ~/.config/calendar-worklog/todo-list.json 으로 복사해 본인 값으로 채운다(레포 밖). 실제 ID·URL 은 절대 커밋하지 않는다.",
+  "_doc": "briefing/README.md 의 '오늘 할 일 캔버스 동기화' 참조. 이 파일을 ~/.config/calendar-worklog/todo-list.json 으로 복사해 본인 값으로 채운다(레포 밖). 실제 ID·URL 은 절대 커밋하지 않는다. 봇 앱 스코프에 canvases:write·canvases:read 추가 후 재설치 필요.",
 
-  "list_id": "F0000000000",
-  "name_column_id": "Col00000000",
-
-  "due_column_id": "Col00000001",
   "share_user_id": "U00000000000",
-  "list_url": "https://<workspace>.slack.com/lists/T0000000/F0000000000?viewId=Vw00000000",
+  "canvas_url_base": "https://<workspace>.slack.com/docs/T0000000",
 
-  "sync_mode": "replace",
-  "list_title_prefix": "오늘의 할 일",
-  "purge_completed": false,
-
-  "post_history": true,
-  "history_target": "U00000000000"
+  "history_target": "U00000000000",
+  "canvas_title_prefix": "오늘의 할 일",
+  "canvas_keep_days": 14
 }
