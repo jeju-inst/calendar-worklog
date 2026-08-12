@@ -13,18 +13,18 @@ worklog 본체(`core/prompt.md`)가 *어제 뭐 했나*를 캘린더에 기록�
 이게 사람 확인 없이 08:00에 무인 실행해도 되는 근거다. 쓰기 동작을 추가하려면 무인 실행
 전제부터 다시 봐야 한다.
 
-> **할 일 리스트 동기화도 이 계약을 안 깬다.** 모델은 `TODO_LIST_START/END` 블록을
-> 표준출력에 낼 뿐 리스트 API를 부르지 않는다. 실제 리스트 쓰기는 브리핑이 끝난 뒤
-> **러너가** `list-sync.py`로 한다 — 모델이 하는 쓰기는 여전히 DM 1건뿐이다.
+> **할 일 캔버스 동기화도 이 계약을 안 깬다.** 모델은 `TODO_LIST_START/END` 블록을
+> 표준출력에 낼 뿐 캔버스 API를 부르지 않는다. 실제 캔버스 생성은 브리핑이 끝난 뒤
+> **러너가** `canvas-sync.py`로 한다 — 모델이 하는 쓰기는 여전히 DM 1건뿐이다.
 
 ## 구성
 
 | 파일 | 역할 |
 |---|---|
 | `prompt.md` | 브리핑 워크플로 (단계 A~G + 순위 기준) |
-| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p` 실행 + 실패 알림 + 리스트 동기화 호출 |
-| `list-sync.py` | 모델이 낸 TODO 블록을 Slack 리스트(todo_mode)에 반영. 러너가 **성공 실행에서만** 호출(비차단) |
-| `todo-list.example.json` | 리스트 동기화 설정 템플릿. 본인 값은 레포 밖(`~/.config/calendar-worklog/`)에 둔다 |
+| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p` 실행 + 실패 알림 + 캔버스 동기화 호출 |
+| `canvas-sync.py` | 모델이 낸 TODO 블록을 Slack 캔버스 체크리스트로 생성·공유·프루닝. 러너가 **성공 실행에서만** 호출(비차단) |
+| `todo-list.example.json` | 캔버스 동기화 설정 템플릿. 본인 값은 레포 밖(`~/.config/calendar-worklog/`)에 둔다 |
 | `notify.py` | 독립 경로 Slack 알림(봇 토큰 직접). claude가 죽어도 이 경로는 산다 |
 | `authcheck.py` | claude 로그인 상태 선제 감시 (keychain 기준, 비용 0) |
 | `com.namun.morning-briefing.plist` | launchd 스케줄 (평일 08:00) |
@@ -79,68 +79,53 @@ env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin ./briefing/run-briefing.sh
 브리핑 자체는 위 두 단계로 끝난다. **오늘 할 일 리스트 동기화는 별도 설정**이 필요하고,
 안 해도 브리핑은 정상 동작한다 (아래 참조).
 
-## 오늘 할 일 리스트 동기화
+## 오늘 할 일 캔버스 동기화
 
-브리핑이 뽑은 오늘 할 일을 Slack 네이티브 리스트(todo_mode)에 매일 반영한다. 완료 체크는
-Slack 서버에 저장되므로 **우리 쪽 상시 서버가 필요 없다** — 인터랙티브 체크박스가 요구하는
-Request URL/Socket Mode 없이 봇 토큰 호출만으로 굴러간다.
+브리핑이 뽑은 오늘 할 일을 매일 **Slack 캔버스 체크리스트**로 만들어 본인 DM에 공유한다.
+"할 일 + 설명 + 체크박스"가 **한 문서**에 담기고, 사용자가 체크하면 취소선/완료가 Slack
+서버에 네이티브로 저장된다 — **상시 서버(Request URL/Socket Mode) 불필요**, 봇 토큰 호출만.
+(이전의 List + 텍스트 스냅샷 이원화를 캔버스 하나로 통합, 2026-08-12.)
 
 동작 순서: 모델이 `TODO_LIST_START/END` 블록을 stdout에 냄 → 러너가 `awk`로 뽑아
-`list-sync.py`에 stdin으로 넘김 → **매일 리스트를 오늘 블록으로 통째 교체한다**(기본
-`replace`, 1회용 일일 리뷰). 지속·헤비 일정 관리는 monday가 하므로 이월하지 않는다.
+`canvas-sync.py`에 stdin으로 넘김 → **매일 새 "오늘의 할 일" 캔버스**를 만들어 공유하고
+링크를 DM. 사용자가 하루 동안 체크하며 진행하고, 다음날 새 캔버스가 온다. 각 날짜 캔버스가
+그날의 "체크된 기록"으로 남고, **N일 지난 캔버스는 자동 삭제**(`canvas_keep_days`)로 안 쌓인다.
+
+> **한계(수용)**: 캔버스는 **체크 상태를 API로 되읽을 방법이 없다**(`canvases.read` 부재).
+> 그래서 "완료 몇 건" 자동 집계는 불가. 가벼운 1회용 일일 리뷰라 이를 수용한다. 전사 집계가
+> 필요해지면 그땐 별도 방식(예: List `lists:read`)을 재검토한다.
 
 ### 설정 (레포 밖)
 
 `briefing/todo-list.example.json`을 `~/.config/calendar-worklog/todo-list.json`으로 복사해
 채운다. 봇 토큰은 `notify.py`와 같은 것을 쓰되(`slack-bot-token`), **스코프에
-`lists:write`·`lists:read`를 추가하고 앱을 재설치**해야 반영된다. 안 하면 `missing_scope`로만
-실패한다.
+`canvases:write`·`canvases:read`를 추가하고 앱을 재설치**해야 반영된다. 안 하면
+`missing_scope`로만 실패한다.
 
 | 키 | 필수 | 읽는 곳 | 뜻 |
 |---|---|---|---|
-| `list_id` | ✅ | `list-sync.py` | 대상 리스트 ID (`F…`) |
-| `name_column_id` | ✅ | `list-sync.py` | 할 일 이름 컬럼 ID (`Col…`) |
-| `due_column_id` | | `list-sync.py` | 마감일 컬럼. 없으면 `due:`를 무시한다 |
-| `share_user_id` | | `list-sync.py` | 매 실행 쓰기 권한을 보장할 사용자 (`U…`) |
-| `list_url` | | `run-briefing.sh` | DM 맨 끝에 붙일 리스트 링크. 없으면 링크를 안 붙인다 |
-| `sync_mode` | | `list-sync.py` | `replace`(**기본**, 1회용 매일 교체) / `carryover`(이월) |
-| `list_title_prefix` | | `list-sync.py` | 매 동기화 때 리스트 제목을 `<prefix> · M/D(요일)`로 갱신. **기본 `오늘의 할 일`**. 빈 값이면 제목 갱신 안 함(날짜 없는 고정 제목용) |
-| `purge_completed` | | `list-sync.py` | `carryover`에서 완료 항목 삭제 여부. **기본 `false`** |
-| `post_history` | | `list-sync.py` | 그날 문장 스냅샷을 DM으로 남길지. **기본 `true`** |
-| `history_target` | | `list-sync.py` | 스냅샷 게시 대상(`U…`/`C…`). 없으면 `share_user_id` |
+| `share_user_id` | ✅ | `canvas-sync.py` | 캔버스 write 공유 + 링크 DM 대상 (`U…`) |
+| `canvas_url_base` | ✅ | `canvas-sync.py` | 캔버스 링크 접두 (`https://<team>.slack.com/docs/<TID>`). 없으면 DM 링크 생략 |
+| `history_target` | | `canvas-sync.py` | 링크 DM 대상. 없으면 `share_user_id` |
+| `canvas_title_prefix` | | `canvas-sync.py` | 캔버스 제목 접두. **기본 `오늘의 할 일`** → `<prefix> · M/D(요일)` |
+| `canvas_keep_days` | | `canvas-sync.py` | 이 일수 지난 캔버스 자동 삭제. **기본 14** |
 
-`sync_mode`는 기본 `replace` — 매일 오늘 것만 남기고 어제 것은 지운다(누적 0, 링크 고정,
-그날 할 일만). 단 입력 블록이 비면 지우지 않는다(실수 방지). 이 리스트를 지속 트래커로
-쓰고 싶으면 `carryover`로 바꾼다 — 그때만 `purge_completed`가 의미가 있고(완료만 정리),
-켤 이유는 거의 없다(todo_mode가 완료를 네이티브로 접어 숨기고, 켜두면 확인차 체크한 것까지 사라진다).
-
-`replace`는 매일 리스트를 비우므로 그날 기록이 남지 않는다. 그래서 `post_history`(기본 켜짐)가
-동기화할 때 일정관리봇 DM으로 **오늘 계획 스냅샷**을 남긴다 — 리스트=오늘의 작업판(교체됨),
-DM=append-only 히스토리. 하루에 한 메시지고, **그 메시지가 다음날 결과까지 담게 진화한다:**
-
-- **게시** (동기화 시): `📋 오늘 할 일 — M/D (요일)` + 각 항목 `N. 내용  ~M/D` + `↳ note 설명`
-  + 리스트 링크. 이때 메시지 `ts`·항목을 `~/.config/calendar-worklog/todo-last-snapshot.json`
-  에 저장한다.
-- **완료 반영** (다음 동기화 시, 지우기 **전**): 저장해 둔 전날 메시지를 `chat.update`로
-  수정해, 그 사이 리스트에서 **완료 체크된 항목을 `~취소선~ ✅`** 로 긋는다. 서버가 없으니
-  실시간이 아니라 **다음 아침 1회** 반영된다(그 시점에 리스트 완료 상태를 읽어 박제). 리스트를
-  안 비우는 `carryover`에서는 하지 않는다.
-
-포맷은 날짜·항목·기한·완료여부가 파싱 가능하게 고정한다(**중장기: 전사 업무현황 집계의
-소스**로 쓸 형태).
+입력 블록의 `| note:`는 캔버스에서 체크박스 제목 **뒤에 이탤릭으로 접혀** 붙고, `| due:`는
+`~M/D`로 함께 붙는다. 매일 새 캔버스라 전날 체크 상태는 그 날짜 캔버스에 그대로 남는다.
+입력 블록이 비면 캔버스를 만들지 않고(빈 캔버스 방지) 프루닝만 수행한다. 생성 이력은
+`~/.config/calendar-worklog/todo-canvas-log.json`에 기록해 프루닝에 쓴다.
 
 ### 안 쓸 때
 
-설정 파일이 없으면 `list-sync.py`는 **건너뜀으로 처리하고 0으로 끝난다**(실패가 아니다).
-이 기능을 쓰지 않는 맥에서 브리핑이 실패로 보이지 않게 하려는 것이다.
+설정 파일이 없으면 `canvas-sync.py`는 **건너뜀으로 처리하고 0으로 끝난다**(실패가 아니다).
 
 ### 확인
 
 ```sh
-grep -E 'list-sync|리스트 동기화' briefing/logs/$(date +%F).log
+grep -E 'canvas-sync|캔버스 동기화' briefing/logs/$(date +%F).log
 ```
-`list-sync: [replace] 삭제 N건 · 신규 N건 · 유지 N건` 이 성공. 뒤에 `· 실패 N건`이 붙으면 일부
-항목이 안 들어간 것이고, 러너도 그 실행을 `!! 리스트 동기화 실패`로 남긴다(브리핑 DM 자체는
+`canvas-sync: 생성 1 · 프루닝 N건 · 보관 N건` 이 성공. 뒤에 `· 실패 N건`이 붙으면 일부
+동작이 실패한 것이고, 러너도 그 실행을 `!! 캔버스 동기화 실패`로 남긴다(브리핑 DM 자체는
 이미 발송된 뒤라 브리핑은 성공으로 끝난다).
 
 ## 실측 (2026-07-20)
