@@ -47,6 +47,17 @@ done
 # (오늘 할 일 링크는 canvas-sync.py 가 캔버스를 만든 뒤 스스로 DM 으로 보낸다 —
 #  캔버스는 매일 새로 생성돼 URL 이 미리 정해지지 않으므로 프롬프트에 주입하지 않는다.)
 
+# 최근 '오늘의 할 일' 캔버스 ID(최신순 3개). 모델이 이걸 slack_read_canvas 로 읽어
+# **완료(- [x])된 항목**을 파악하고, 오늘 후보 중 이미 끝난 반복 항목을 재게시하지 않게 한다.
+# (canvas-sync 가 아직 안 돌아 오늘 것은 로그에 없다 — 어제까지가 들어온다.)
+RECENT_CANVASES=$(/usr/bin/python3 -c 'import json,os
+try:
+  log=json.load(open(os.path.expanduser("~/.config/calendar-worklog/todo-canvas-log.json")))
+  print(",".join(reversed([e["canvas_id"] for e in log][-3:])))
+except Exception: pass' 2>/dev/null || true)
+CANVAS_HINT=""
+[ -n "$RECENT_CANVASES" ] && CANVAS_HINT="- **이미 끝낸 반복 항목은 재게시 금지**: 최근 '오늘의 할 일' 캔버스 ID = \`$RECENT_CANVASES\`(최신순). 단계 G 블록을 내기 전에 \`slack_read_canvas\` 로 읽어 **완료(\`- [x]\`) 항목**을 모아라. 오늘 후보 중 그와 **본질적으로 같은 일**은 이미 끝났으니 블록에서 뺀다. 미완료(\`- [ ]\`)는 이월하지 말고(오늘 소스에 또 잡히면 그때 포함), 완료된 것만 억제한다. 커넥터를 못 읽으면 그냥 넘어간다."
+
 # 프롬프트 조립: 브리핑 워크플로 + 사용자 설정(캘린더 ID 등)을 한 번에 먹인다.
 # core/prompt.md 전체는 넣지 않는다 — 사후 기록 워크플로라 브리핑엔 불필요하고,
 # 캘린더 쓰기 지침이 섞이면 "읽기 전용" 계약이 흐려진다.
@@ -77,6 +88,7 @@ $(cat core/user-config.yaml)
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
 - 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
   메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
+$CANVAS_HINT
 - 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
   \`BRIEFING_FAILED: <사유>\` 셋 중 **정확히 하나**를 한 줄로 남긴다.
   나머지 두 토큰은 사유 설명에도 쓰지 마라 — 러너가 상충으로 보고 실패 처리한다.
@@ -84,7 +96,7 @@ $(cat core/user-config.yaml)
 EOF
 )
 
-ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__plugin_slack_slack__slack_send_message,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
+ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__plugin_slack_slack__slack_send_message,mcp__claude_ai_Slack__slack_read_canvas,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
 
 # perl alarm = macOS에 timeout(1)이 없어서 쓰는 대체
 OUT=$(perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
