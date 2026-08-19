@@ -118,6 +118,14 @@ env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin ./briefing/run-briefing.sh
 입력 블록이 비면 캔버스를 만들지 않고(빈 캔버스 방지) 프루닝만 수행한다. 생성 이력은
 `~/.config/calendar-worklog/todo-canvas-log.json`에 기록해 프루닝에 쓴다.
 
+### 수동 씨앗 (직접 넣는 오늘 할 일)
+
+소스(캘린더·monday 등)에 안 잡히는 일을 다음 브리핑에 **직접 끼워넣고** 싶으면
+`~/.config/calendar-worklog/todo-seed.txt`에 한 줄씩 적는다(형식은 TODO 블록과 동일
+`<할 일> | due: | note:`, `#` 주석). 러너가 이걸 프롬프트에 주입해 모델이 **반드시 블록에
+포함**하게 하고, **성공 발송 후 1회성으로 비운다**(주석 헤더는 보존). "내일 이거 꼭 하자"를
+잡아두는 용도.
+
 ### 안 쓸 때
 
 설정 파일이 없으면 `canvas-sync.py`는 **건너뜀으로 처리하고 0으로 끝난다**(실패가 아니다).
