@@ -58,6 +58,14 @@ except Exception: pass' 2>/dev/null || true)
 CANVAS_HINT=""
 [ -n "$RECENT_CANVASES" ] && CANVAS_HINT="- **이미 끝낸 반복 항목은 재게시 금지**: 최근 '오늘의 할 일' 캔버스 ID = \`$RECENT_CANVASES\`(최신순). 단계 G 블록을 내기 전에 \`slack_read_canvas\` 로 읽어 **완료(\`- [x]\`) 항목**을 모아라. 오늘 후보 중 그와 **본질적으로 같은 일**은 이미 끝났으니 블록에서 뺀다. 미완료(\`- [ ]\`)는 이월하지 말고(오늘 소스에 또 잡히면 그때 포함), 완료된 것만 억제한다. 커넥터를 못 읽으면 그냥 넘어간다."
 
+# 수동 씨앗(seed) — 사용자가 직접 추가해 둔 오늘 할 일. 소스에 없어도 반드시 넣는다.
+# 성공 발송 후 1회성으로 비운다(아래 SENT 경로).
+SEED_FILE="$HOME/.config/calendar-worklog/todo-seed.txt"
+SEED=$(/usr/bin/grep -vE '^\s*(#|$)' "$SEED_FILE" 2>/dev/null || true)
+SEED_HINT=""
+[ -n "$SEED" ] && SEED_HINT="- **사용자가 직접 추가한 오늘 할 일 — 소스 유무와 무관하게 단계 G 블록에 반드시 그대로 포함**(due/note 형식 유지):
+$SEED"
+
 # 프롬프트 조립: 브리핑 워크플로 + 사용자 설정(캘린더 ID 등)을 한 번에 먹인다.
 # core/prompt.md 전체는 넣지 않는다 — 사후 기록 워크플로라 브리핑엔 불필요하고,
 # 캘린더 쓰기 지침이 섞이면 "읽기 전용" 계약이 흐려진다.
@@ -88,6 +96,7 @@ $(cat core/user-config.yaml)
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
 - 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
   메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
+$SEED_HINT
 $CANVAS_HINT
 - 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
   \`BRIEFING_FAILED: <사유>\` 셋 중 **정확히 하나**를 한 줄로 남긴다.
@@ -170,6 +179,12 @@ if printf '%s' "$OUT" | /usr/bin/grep -q 'TODO_LIST_START'; then
   fi
 else
   echo "TODO 블록 없음 — 캔버스 동기화 건너뜀"
+fi
+
+# 수동 씨앗 1회성 소비 — 브리핑에 실렸으므로 비운다(주석 헤더는 보존).
+if [ -n "$SEED" ]; then
+  /usr/bin/grep -E '^[[:space:]]*#' "$SEED_FILE" > "$SEED_FILE.tmp" 2>/dev/null && /bin/mv "$SEED_FILE.tmp" "$SEED_FILE"
+  echo "수동 씨앗 소비(비움) 완료"
 fi
 
 # 로그는 30일치만 유지
