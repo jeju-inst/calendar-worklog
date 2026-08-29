@@ -59,6 +59,7 @@ description: >-
 | 권장 | `mail` 스킬 | `~/.claude/skills/mail/SKILL.md` 존재 여부 |
 | 권장 | Codex CLI | `~/.codex/history.jsonl` 존재 여부 |
 | 권장 | Claude Code 세션 로그 | `~/.claude/projects/` 존재 + Bash/Python 가용 |
+| 권장 | Antigravity 세션 로그 | `~/.gemini/antigravity-cli/brain/` 존재 + Bash/Python 가용 |
 
 권장 항목이 빠지면 해당 소스를 단계 C에서 건너뛰고 보고에 명시.
 
@@ -187,6 +188,9 @@ description: >-
    - 채널/DM 모두 포함
 2. **과거 AI 세션** *(빈 슬롯의 메인 활동 추정에 핵심)*: 대상 일자 범위 대화 검색
    - **claude.ai 환경**: `conversation_search` / `recent_chats` 도구 있으면 사용 — 메시지 단위 timestamp 가용
+   - **로컬 코딩 에이전트는 Claude Code·Codex·Antigravity 세 종류를 각각 확인** — 한 종류에서
+     활동을 찾았더라도 나머지를 생략하지 않음. 로그 경로가 없는 에이전트만 건너뛰고 소스
+     접근 현황에 명시
    - **Claude Code**: `~/.claude/projects/<dir-slug>/<uuid>.jsonl` 파일들을 Bash + Python으로 스캔
      - 각 jsonl 라인의 `"timestamp"`(ISO8601 UTC)로 대상 일자(KST) 메시지만 필터
      - `"type": "user"` 메시지만 카운트(어시스턴트 응답 제외)
@@ -195,6 +199,13 @@ description: >-
    - **Codex CLI**: `~/.codex/history.jsonl`(사용자 prompt 전체, `{session_id, ts, text}` 형식, ts는 unix 초) + `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`(각 세션 첫 라인 payload에 cwd) 결합
      - history.jsonl을 대상 일자 KST 범위 ts로 필터, session_id로 그룹화
      - sessions 파일에서 매칭 session_id의 cwd 추출
+   - **Antigravity CLI**: `~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl` 스캔
+     - 각 jsonl 라인의 `"created_at"`(ISO8601 UTC)을 사용자 시간대로 변환해 대상 일자만 필터
+     - `"type": "USER_INPUT"`인 라인만 카운트하고, `content`의 `<USER_REQUEST>`는 주제
+       파악에만 사용(본문을 캘린더 description에 복사하지 않음)
+     - 같은 세션의 `file://` URI에서 프로젝트 경로를 best-effort로 추정. 경로 단서가 없으면
+       프로젝트를 지어내지 말고 미확정으로 표시
+     - `transcript_full.jsonl`은 같은 세션의 중복 기록이므로 `transcript.jsonl`이 없을 때만 폴백
    - **활용 원칙**: Slack/monday에 안 잡힌 시간대 활동이 AI 세션에 남는 경우가 흔함 — 특히 코드/문서 작업이 메인일 때. 단순 "AI 사용 시간"이 아니라 *그 시간대 실제 업무 컨텍스트*로 취급. 빈 슬롯을 발견하면 반드시 AI 세션부터 확인.
 3. **monday.com**: 즐겨찾기 보드의 본인 활동 조회
    - **먼저 본인 monday user를 식별**(user context 조회). monday user id는
@@ -592,4 +603,3 @@ socket.socket.connect = patched_connect
 ```
 
 이 패치는 `google_dns_patch.py`로 모듈화되어 있으며, 현재 `calendar-worklog` 및 `ji-calendar-provision` 리포지토리의 주요 구글 캘린더 통신 스크립트(`read_calendars.py`, `add_event.py` 등)의 시작 지점에 자동으로 주입/적용되어 작동하고 있습니다.
-

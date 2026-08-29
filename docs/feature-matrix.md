@@ -19,13 +19,15 @@ calendar-worklog를 돌릴 수 있는 트랙(AI 환경)별 비교입니다. 셋�
 | Slack 메시지 검색 | ✅ | ⚠️ 공식 Slack app은 paid ChatGPT plan 필요 | ✅ | ✅ 커넥터 (검증됨) |
 | monday 활동 조회 | ✅ | ⚠️ Apps 디렉터리/조직 설정/플랜 검증 필요 | ✅ MCP | ✅ 커넥터 (검증됨, 도구 명시 필요) |
 | email 조회 | 도구 설정 시 가능 | ⚠️ Gmail/Outlook Apps 가능, 플랜/조직 설정 검증 필요 | MCP 설정 시 가능 | ✅ 커넥터 (gmail) |
-| 과거 AI 대화 검색 | ✅ (Claude 고유) | ⚠️ ChatGPT search/memory/project memory는 보조 소스 | ✅ (Claude 고유) | ❌ |
+| AI 세션 활동 조회 | ✅ (Claude 자체 대화) | ⚠️ ChatGPT search/memory/project memory는 보조 소스 | ✅ Claude 자체 + 로컬 Claude Code·Codex·Antigravity 로그 | ✅ 로컬 Claude Code·Codex·Antigravity 로그 |
 | 셋업 난도 | 낮음 | 중 | 중 | 중 (앱은 커넥터 토글) |
 | 자동 실행(cron/CI) | ❌ | ❌ | ✅ | ✅ |
 
 ## 메모
 
-- **과거 AI 대화 검색**은 Claude 계열 고유 기능 → 활동 소스가 하나 더 풍부 (Claude 트랙의 우위).
+- **코드 트랙의 AI 세션 수집**은 현재 실행 중인 에이전트만 보지 않고, 로컬에 존재하는
+  Claude Code·Codex·Antigravity 로그 세 종류를 각각 확인한다. 채팅창 트랙은 로컬 파일에
+  접근할 수 없어 해당 서비스가 제공하는 자체 대화 검색만 사용한다.
 - **무료 가능 여부(ChatGPT) — 2026-05-29 확정: 불가.** 동일 기계 A/B 테스트(무료 계정 vs Plus): 무료 계정은 `설정→앱`에 커넥터 목록이 없고 앱 디렉터리에도 **Google Calendar가 안 뜬다**. Plus 계정은 같은 화면에 Google Calendar(✓)/Slack/monday가 뜬다. → 무료엔 Google Calendar 커넥터가 없어 **캘린더 쓰기 자체가 불가 = worklog 핵심 기능 불가**. (이전 '무료에서 Slack 읽기' 실관찰은 이 무료 계정에선 재현 안 됨 — 시점/롤아웃 차이로 추정. Calendar가 막혀 결론은 어차피 불가.) **동료 배포는 Plus+ 전제.**
 - **ChatGPT 권장 하한**: 라이트 유저 end-to-end 검증은 Plus부터 보는 것이 현실적이다. 조직 배포와 write action 통제는 Business/Enterprise/Edu가 더 적합하다.
 - **자동 매일 실행**(Phase 2)은 코드 트랙(Claude Code/Codex)에서만 구성 가능.

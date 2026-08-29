@@ -33,7 +33,7 @@ calendar-worklog를 본인 환경에 도입하는 모든 트랙의 단계별 절
 | 셋업 시간 | 5분 | 10분+ |
 | 비개발자 친화 | ✅ | ❌ (터미널 필요) |
 | 매일 아침 자동 실행 (Phase 2 예정) | ❌ | ✅ |
-| AI 과거 대화를 활동 소스로 | ChatGPT ❌ / Claude ✅ | Codex ❌ / Claude Code ✅ |
+| AI 과거 대화를 활동 소스로 | ChatGPT 보조 검색 / Claude ✅ | Claude Code·Codex·Antigravity 로컬 로그 ✅ |
 | `지참 0835` / `어제 정리` / 명시 일정 | ✅ | ✅ |
 
 처음 도입은 **A 또는 B**가 압도적으로 쉽습니다. 자동화/코드 작업이 필요해지면 그때 C·D로.

@@ -93,8 +93,17 @@
    - 채널/DM 모두 포함
 2. **과거 AI 세션** *(빈 슬롯의 메인 활동 추정에 핵심)*: 대상 일자 범위 대화 검색
    - **claude.ai 환경**: `conversation_search` / `recent_chats` 도구로 메시지 단위 timestamp 가용
+   - **로컬 코딩 에이전트는 Claude Code·Codex·Antigravity 세 종류를 각각 확인** — 한 종류에서
+     활동을 찾았더라도 나머지를 생략하지 않음. 로그 경로가 없는 에이전트만 건너뛰고 소스
+     접근 현황에 명시
    - **Claude Code 환경**: `~/.claude/projects/<dir-slug>/<uuid>.jsonl` 스캔 — 각 라인 `"timestamp"`(ISO8601 UTC)로 KST 필터, `"type":"user"`만 카운트, 디렉토리 슬러그로 cwd 복원
    - **Codex CLI**: `~/.codex/history.jsonl`(`{session_id, ts, text}`, ts는 unix 초) + `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`(첫 라인 payload에 cwd) 결합
+   - **Antigravity CLI**: `~/.gemini/antigravity-cli/brain/<uuid>/.system_generated/logs/transcript.jsonl` 스캔
+     - `"created_at"`(ISO8601 UTC)을 사용자 시간대로 변환해 대상 일자만 필터하고,
+       `"type":"USER_INPUT"`만 카운트
+     - `content`의 `<USER_REQUEST>`는 주제 파악에만 사용하고 본문을 description에 복사하지 않음
+     - 같은 세션의 `file://` URI에서 프로젝트 경로를 best-effort로 추정. 단서가 없으면 미확정 처리
+     - `transcript_full.jsonl`은 `transcript.jsonl`이 없을 때만 폴백해 중복 카운트를 피함
    - **활용 원칙**: Slack/monday에 안 잡힌 시간대의 메인 활동이 AI 세션에 남는 경우가 흔함(특히 코드/문서 작업). 단순 "AI 사용"이 아니라 *그 시간대 실제 업무 컨텍스트*로 취급. 빈 슬롯 발견 시 반드시 AI 세션부터 확인.
 3. **monday.com**: 즐겨찾기 보드의 본인 활동 조회
    - **먼저 본인 monday user를 식별**(user context 조회). monday user id는
