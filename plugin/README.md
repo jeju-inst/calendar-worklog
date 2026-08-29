@@ -31,7 +31,8 @@ Slack/monday/AI 활동을 종합해 사후 업무일지를 기록한다.
 |---|---|---|
 | **`mail` 스킬** | 퍼블릭: <https://github.com/z0nam/mail-skill> · 개인정보 포함 변형: <https://github.com/z0nam/mail-skill-namun>. 클론 후 `ln -s <repo>/.claude/skills/mail ~/.claude/skills/mail` | 메일 활동(공식 응대·외부 트래픽) 포함 |
 | **Codex CLI** | `brew install codex` 또는 `npm i -g @openai/codex` | Codex 세션 로그 검색 (`~/.codex/history.jsonl`) |
-| **Bash + Python 3** | macOS/Linux 기본 포함 | Claude Code 세션 로그(`~/.claude/projects/*.jsonl`) 스캔 |
+| **Antigravity CLI 사용 기록** | `~/.gemini/antigravity-cli/brain/` 존재 여부 | Antigravity 세션 로그 검색 (`transcript.jsonl`) |
+| **Bash + Python 3** | macOS/Linux 기본 포함 | Claude Code·Codex·Antigravity 로컬 세션 로그 스캔 |
 
 ## 설치 (동료용)
 

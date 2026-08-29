@@ -1,7 +1,7 @@
 {
   "name": "calendar-worklog-ji",
   "description": "제주연구원(JI) 내부 캘린더 업무기록 어시스턴트. Slack/monday/AI 활동을 종합해 4종 캘린더(과제/근태/업무/기타)에 사후 업무일지를 기록한다.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Namun Cho",
     "url": "https://github.com/z0nam/calendar-worklog"
@@ -28,7 +28,8 @@
       ],
       "tools": [
         { "name": "codex-cli", "install": "brew install codex 또는 npm i -g @openai/codex", "purpose": "~/.codex/history.jsonl 검색" },
-        { "name": "python3 + bash", "install": "macOS/Linux 기본 포함", "purpose": "~/.claude/projects/*.jsonl 스캔" }
+        { "name": "antigravity-session-logs", "install": "Antigravity CLI 사용 시 자동 생성", "purpose": "~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript.jsonl 검색" },
+        { "name": "python3 + bash", "install": "macOS/Linux 기본 포함", "purpose": "Claude Code·Codex·Antigravity 로컬 세션 로그 스캔" }
       ]
     }
   }

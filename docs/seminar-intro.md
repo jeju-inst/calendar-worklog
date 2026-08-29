@@ -158,7 +158,7 @@ decision-tree → preset → config → 첫 명령. 한 번 셋업하면 끝.
 | 비개발자 친화 | ✅ | ❌ (앱/CLI 설치·git 사용) |
 | 매일 아침 자동 실행 (Phase 2 예정) | ❌ | ✅ |
 | 본인 PC 파일·스크립트 다루기 | ❌ | ✅ |
-| AI 과거 대화를 활동 소스로 | ChatGPT ❌ / Claude ✅ | Codex ❌ / Claude Code ✅ |
+| AI 과거 대화를 활동 소스로 | ChatGPT 보조 검색 / Claude ✅ | Claude Code·Codex·Antigravity 로컬 로그 ✅ |
 
 > 처음 도입은 **채팅창 트랙(A 또는 B)**이 압도적으로 쉽습니다. 매일 자동화나 본격 코드 작업이 필요해지면 그때 C/D로 이동.
 
