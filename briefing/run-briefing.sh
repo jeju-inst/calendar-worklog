@@ -89,23 +89,27 @@ $(cat core/user-config.yaml)
 - **먼저 단계 A-0(근무일 게이트)를 수행한다.** 오늘이 연가·휴가·공휴일 등 비근무일이면
   브리핑을 만들지 말고, DM도 보내지 말고, \`BRIEFING_SKIPPED: <사유>(<날짜>)\` 한 줄만
   남기고 즉시 종료한다. (건너뛴 구간은 복귀일 브리핑이 흡수하므로 유실되지 않는다.)
-- 근무일이면 단계 A~F를 끝까지 수행하고, 완성된 브리핑을 Slack DM으로 **반드시 발송**한 뒤 종료한다.
-- 발송 대상: 본인 DM (Slack user \`$SLACK_SELF\`).
+- 근무일이면 단계 A~F를 끝까지 수행하되, **DM을 직접 보내지 마라.** 완성된 DM 본문을
+  표준출력에 \`BRIEFING_DM_START\` 와 \`BRIEFING_DM_END\` 두 줄 사이에 **그대로** 낸다.
+  러너가 그 본문을 봇으로 본인 DM(Slack user \`$SLACK_SELF\`)에 발송한다. 마크다운은
+  **Slack 형식**(\`*굵게*\`·\`_기울임_\`·\`• \` 불릿)을 쓴다(GitHub \`**\`는 깨진다).
 - 캘린더는 위 config의 \`calendars\` 4개 + \`read_only_calendars\`를 **ID로 지정해** 조회한다.
   primary 캘린더만 보면 안 된다(비어 있다).
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
-- 읽기 전용 계약을 지킨다: 캘린더 생성/수정 금지, 메일 회신 금지, monday 수정 금지,
-  메시지 답장 금지. 유일한 쓰기는 위 Slack DM 1건.
+- 이 실행에서 너는 **아무것도 직접 쓰지 않는다**(발송조차 러너가 한다): 캘린더 생성/수정,
+  메일 회신, monday 수정, 메시지 답장, Slack 발송 전부 금지. 유일한 산출은 표준출력 텍스트다.
 $SEED_HINT
 $CANVAS_HINT
-- 마지막에 표준출력으로 \`BRIEFING_SENT\` / \`BRIEFING_SKIPPED: <사유>\` /
-  \`BRIEFING_FAILED: <사유>\` 셋 중 **정확히 하나**를 한 줄로 남긴다.
-  나머지 두 토큰은 사유 설명에도 쓰지 마라 — 러너가 상충으로 보고 실패 처리한다.
-  (예: 실패 사유에 "건너뛸 수 없었다"를 적더라도 \`SKIPPED\`라는 단어는 넣지 마라.)
+- 상태 토큰(표준출력 한 줄):
+  - 비근무일이면 \`BRIEFING_SKIPPED: <사유>\` 한 줄만 내고 종료(본문 블록 없이).
+  - 캘린더조차 못 읽는 등 회복 불가 실패면 \`BRIEFING_FAILED: <사유>\` 한 줄.
+  - **근무일 정상 실행에서는 위 \`BRIEFING_DM_START/END\` 본문 블록(+단계 G의 TODO 블록)을
+    내는 것으로 충분하다. \`BRIEFING_SENT\`는 내지 마라** — 발송과 성공 판정은 러너가 한다.
+  - \`SKIPPED\`/\`FAILED\` 두 토큰을 한 실행에 섞지 마라(러너가 상충으로 보고 실패 처리한다).
 EOF
 )
 
-ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__plugin_slack_slack__slack_send_message,mcp__claude_ai_Slack__slack_read_canvas,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
+ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__claude_ai_Slack__slack_read_canvas,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
 
 # perl alarm = macOS에 timeout(1)이 없어서 쓰는 대체
 OUT=$(perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
@@ -115,19 +119,41 @@ RC=$?
 echo "$OUT"
 echo "--- claude rc=$RC ---"
 
-# 결말은 셋 중 하나다: 발송 / 건너뜀(비근무일) / 실패.
-# 판정을 부분 문자열 매칭으로 하면 안 된다 — claude 가
-#   BRIEFING_FAILED: calendar unavailable; cannot return BRIEFING_SKIPPED
-# 처럼 한 줄에 두 토큰을 섞어 낼 수 있고, 그러면 실패가 "건너뜀"으로 조용히 묻힌다.
-# (건너뜀을 실패로 오인하면 연차 아침마다 실패 알림이 뜨고, 그 반대는 실패를 삼킨다.
-#  후자가 더 위험하다.) 그래서 상태 토큰을 전부 모아 아래 규칙으로 판정한다:
-#   - rc≠0, 또는 FAILED 가 섞였거나, 서로 다른 상태가 2종 이상이면 → 실패
-#   - SENT 단독 → 완료   / SKIPPED 단독 → 건너뜀   / 아무것도 없음 → 실패
-KINDS=$(printf '%s\n' "$OUT" | /usr/bin/grep -oE 'BRIEFING_(SENT|SKIPPED|FAILED)' | sort -u)
-NKINDS=$(printf '%s' "$KINDS" | /usr/bin/grep -c .)
+# 결말은 셋 중 하나: 발송(성공) / 건너뜀(비근무일) / 실패.
+# C-a(2026-09-07): **발송을 러너가 한다.** 모델은 DM 본문만 stdout(BRIEFING_DM_START/END)
+# 에 내고, 러너가 봇으로 보낸다 — chat.postMessage 의 성공(ok+ts)이 성공의 **단일 근거**다.
+# (예전엔 모델이 커넥터로 직접 보내고 러너는 모델이 낸 BRIEFING_SENT 토큰으로 성공을
+#  판정했는데, 모델이 본문·DM 은 보내놓고 그 토큰을 빠뜨리자 성공한 브리핑이 '실패'로
+#  오탐됐다. 성공 신호가 모델의 마지막 한 줄에 걸려 있던 게 근본 취약점 → 발송 자체를
+#  러너로 옮겨 근본 제거.) 모델이 낼 상태 토큰은 SKIPPED(비근무일)/FAILED(회복불가)뿐.
+KINDS=$(printf '%s\n' "$OUT" | /usr/bin/grep -oE 'BRIEFING_(SKIPPED|FAILED)' | sort -u)
+# 모델이 낸 DM 본문 — 마커는 공백 허용해 관대하게 뽑는다. 러너가 이걸 봇으로 보낸다.
+BODY=$(printf '%s\n' "$OUT" | /usr/bin/awk '/^[[:space:]]*BRIEFING_DM_START[[:space:]]*$/{f=1;next} /^[[:space:]]*BRIEFING_DM_END[[:space:]]*$/{f=0} f')
+BODY_TRIM=$(printf '%s' "$BODY" | tr -d '[:space:]')
 
-if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' || [ "$NKINDS" -gt 1 ] || [ "$NKINDS" -eq 0 ]; then
-  echo "실패 감지 — 알림 발송 시도 (rc=$RC, 상태='$(printf '%s' "$KINDS" | tr '\n' ',')')"
+# 판정: 하드 실패(rc·모델 FAILED) → 비근무일 건너뜀 → 본문 있으면 러너 발송으로 성공/실패.
+DECISION=""; FAILREASON=""; POST_OUT=""
+if [ $RC -ne 0 ]; then
+  DECISION=fail; FAILREASON="claude 비정상 종료 (rc=$RC — 타임아웃/크래시)"
+elif printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED'; then
+  DECISION=fail; FAILREASON="모델 BRIEFING_FAILED: $(printf '%s' "$OUT" | /usr/bin/grep -oE 'BRIEFING_FAILED[^[:cntrl:]]*' | head -1)"
+elif printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_SKIPPED'; then
+  DECISION=skipped
+elif [ -z "$BODY_TRIM" ]; then
+  DECISION=fail; FAILREASON="DM 본문 블록(BRIEFING_DM_START/END)이 없거나 비어 있음"
+else
+  # 러너가 봇으로 발송 — chat.postMessage ok+ts 가 성공의 단일 근거(모델 텍스트 파싱 없음).
+  POST_OUT=$(printf '%s\n' "$BODY" | /usr/bin/python3 "$REPO/briefing/send-dm.py" 2>&1); POST_RC=$?
+  if [ "$POST_RC" -eq 0 ]; then
+    DECISION=sent
+  else
+    DECISION=fail; FAILREASON="봇 DM 발송 실패 — $(printf '%s' "$POST_OUT" | tail -1)"
+  fi
+fi
+[ -n "$POST_OUT" ] && printf '%s\n' "$POST_OUT"   # 발송 결과(ts/permalink) 로그에 남김
+
+if [ "$DECISION" = fail ]; then
+  echo "실패 감지 — 알림 발송 시도 (rc=$RC, 사유='$FAILREASON')"
   # 조용히 죽지 않는다. 브리핑이 '안 온 것'과 '실패한 것'을 구분할 수 있어야 한다.
   /usr/bin/osascript -e 'display notification "아침 브리핑 생성 실패 — 로그 확인" with title "calendar-worklog"' 2>/dev/null
 
@@ -143,7 +169,7 @@ if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' ||
       MSG="⚠️ 아침 브리핑 실패 — *claude 로그인(OAuth) 만료로 추정*. claude 를 쓰는 루틴이 전부 멈춥니다. 터미널에서 \`claude\` 실행 후 재로그인(/login) 필요. (rc=$RC, $(date '+%F %T'))"
     fi
   else
-    MSG="⚠️ 아침 브리핑 실패 (rc=$RC) — 로그 확인: $LOG ($(date '+%F %T'))"
+    MSG="⚠️ 아침 브리핑 실패 — ${FAILREASON:-원인 미상} (rc=$RC) — 로그 확인: $LOG ($(date '+%F %T'))"
   fi
   # 독립 경로(Slack Bot Token 직접, claude/codex/agy 무관)로 폰에 DM.
   # 감시 대상(claude)이 죽어도 이 경로는 산다. 알림마저 실패하면 로그에 남긴다.
@@ -155,14 +181,14 @@ if [ $RC -ne 0 ] || printf '%s' "$KINDS" | /usr/bin/grep -q 'BRIEFING_FAILED' ||
   exit 1
 fi
 
-if [ "$KINDS" = "BRIEFING_SKIPPED" ]; then
+if [ "$DECISION" = skipped ]; then
   echo "=== $(date '+%F %T') 비근무일 — 건너뜀 ($(printf '%s' "$OUT" | /usr/bin/grep -oE 'BRIEFING_SKIPPED[^[:cntrl:]]*' | head -1)) ==="
   /usr/bin/find "$LOGDIR" -name '*.log' -mtime +30 -delete 2>/dev/null
   exit 0
 fi
 
-# 여기 오면 KINDS = BRIEFING_SENT 단독.
-echo "=== $(date '+%F %T') 브리핑 완료 ==="
+# 여기 오면 DECISION=sent — 러너가 봇 DM 발송을 확인함(chat.postMessage ok+ts).
+echo "=== $(date '+%F %T') 브리핑 완료 (봇 DM 발송 확인) ==="
 
 # 오늘 할 일 캔버스 동기화 — 모델이 낸 TODO 블록을 뽑아 canvas-sync.py 로 넘긴다.
 # 성공(SENT) 실행에서만 캔버스를 건드린다. 실패해도 브리핑 자체는 이미 성공이므로
