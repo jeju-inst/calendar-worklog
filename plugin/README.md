@@ -41,7 +41,7 @@ Slack/monday/AI 활동을 종합해 사후 업무일지를 기록한다.
 ### 2. 플러그인 설치
 
 ```
-/plugin marketplace add z0nam/calendar-worklog
+/plugin marketplace add jeju-inst/calendar-worklog
 /plugin install calendar-worklog-ji
 ```
 
@@ -79,4 +79,4 @@ Slack/monday/AI 활동을 종합해 사후 업무일지를 기록한다.
 
 ## 문제가 있으면
 
-저장소: <https://github.com/z0nam/calendar-worklog>
+저장소: <https://github.com/jeju-inst/calendar-worklog>

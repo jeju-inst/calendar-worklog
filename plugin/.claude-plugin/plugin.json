@@ -1,36 +1,11 @@
 {
   "name": "calendar-worklog-ji",
   "description": "제주연구원(JI) 내부 캘린더 업무기록 어시스턴트. Slack/monday/AI 활동을 종합해 4종 캘린더(과제/근태/업무/기타)에 사후 업무일지를 기록한다.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "Namun Cho",
-    "url": "https://github.com/z0nam/calendar-worklog"
+    "url": "https://github.com/jeju-inst/calendar-worklog"
   },
-  "homepage": "https://github.com/z0nam/calendar-worklog",
-  "license": "TBD",
-  "dependencies": {
-    "required": {
-      "mcp": [
-        { "name": "google-calendar", "via": "claude.ai connector | local MCP", "purpose": "캘린더 읽기/쓰기" },
-        { "name": "slack",           "via": "claude.ai connector | local MCP", "purpose": "메시지 검색" },
-        { "name": "monday",          "via": "claude.ai connector | local MCP", "purpose": "보드 활동 조회" }
-      ]
-    },
-    "recommended": {
-      "skills": [
-        {
-          "name": "mail",
-          "source": "https://github.com/z0nam/mail-skill (퍼블릭, 일반 동료용)",
-          "private_variant": "https://github.com/z0nam/mail-skill-namun (개인정보 포함 변형)",
-          "purpose": "이메일 활동 포함 (95%→100% 커버)",
-          "install_hint": "둘 중 하나를 클론 후 `ln -s <repo>/.claude/skills/mail ~/.claude/skills/mail` (마켓플레이스 패키징은 추후)"
-        }
-      ],
-      "tools": [
-        { "name": "codex-cli", "install": "brew install codex 또는 npm i -g @openai/codex", "purpose": "~/.codex/history.jsonl 검색" },
-        { "name": "antigravity-session-logs", "install": "Antigravity CLI 사용 시 자동 생성", "purpose": "~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript.jsonl 검색" },
-        { "name": "python3 + bash", "install": "macOS/Linux 기본 포함", "purpose": "Claude Code·Codex·Antigravity 로컬 세션 로그 스캔" }
-      ]
-    }
-  }
+  "homepage": "https://github.com/jeju-inst/calendar-worklog",
+  "license": "TBD"
 }
