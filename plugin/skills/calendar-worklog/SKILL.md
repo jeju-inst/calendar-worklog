@@ -49,7 +49,7 @@ description: >-
 
 **A-1. 의존성 점검 (아래 표 기준. 설치 안내는 플러그인 README 참조):**
 
-먼저 다음을 확인해 한 줄짜리 표로 보고. **필수 항목이 빠지면 마법사 중단하고 안내 후 종료.**
+먼저 다음을 확인해 한 줄짜리 표로 보고. **필수 항목이 빠지면 아래 A-1-1(연결 유도)로 간다.** 연결되기 전에는 0-B로 넘어가지 않는다.
 
 | 분류 | 항목 | 점검 방법 |
 |---|---|---|
@@ -62,6 +62,50 @@ description: >-
 | 권장 | Antigravity 세션 로그 | `~/.gemini/antigravity-cli/brain/` 존재 + Bash/Python 가용 |
 
 권장 항목이 빠지면 해당 소스를 단계 C에서 건너뛰고 보고에 명시.
+
+**A-1-1. 연결이 없을 때 — 중단하지 말고 연결을 유도:**
+
+0-A에서 빠진 능력이 있으면 바로 끝내지 말고, 사용자가 연결을 마치도록 돕습니다.
+원칙은 **각 AI 회사가 직접 제공하는 커넥터(앱)가 1순위**이고, CLI로 MCP 서버를 직접 등록하는 건
+그게 실제로 되는 서비스에만 씁니다. 셸이 없는 채팅 환경에서는 1)의 설정 경로만 안내합니다.
+
+**1) 지금 어느 계정 환경인지 판단** (쓸 수 있는 도구 이름으로 추정합니다)
+
+| 단서 | 1순위 연결 경로 |
+|---|---|
+| `mcp__claude_ai_…` 도구가 보이거나 Claude Code·claude.ai | claude.ai → 설정 → 커넥터에서 Google Calendar·Slack·monday.com 연결. 같은 계정이면 Claude Code에도 자동으로 붙음 |
+| `mcp__codex_apps__…` 도구가 보이거나 Codex·ChatGPT | chatgpt.com → 설정 → 앱에서 세 개 연결. Codex CLI도 같은 ChatGPT 계정이면 자동으로 붙음(`codex login status`가 "Logged in using ChatGPT"인지 확인) |
+| 그 밖의 로컬 CLI 에이전트(agy, Gemini CLI 등) | 아래 2)와 3) |
+
+**2) CLI로 직접 등록할 수 있는 것은 monday뿐**
+
+monday MCP(`https://mcp.monday.com/mcp`)는 OAuth 동적 클라이언트 등록을 지원하므로, 어떤 에이전트든
+CLI로 등록한 뒤 브라우저 로그인만 하면 됩니다. 셸 명령을 실행할 수 있으면 **사용자에게 한 번
+확인받고 직접 실행**하십시오. 1)의 커넥터로 이미 monday가 붙어 있으면 중복이므로 등록하지 않습니다.
+
+| 에이전트 | 등록 | 로그인(브라우저, 사용자가 직접 승인) |
+|---|---|---|
+| Claude Code | `claude mcp add --transport http -s user monday https://mcp.monday.com/mcp` | 세션에서 `/mcp` → monday 인증 |
+| Codex | `codex mcp add monday --url https://mcp.monday.com/mcp` | 등록 직후 로그인이 자동으로 시작됨. 끊겼으면 `codex mcp login monday` |
+| Gemini CLI | `gemini mcp add -t http -s user monday https://mcp.monday.com/mcp` | 세션에서 `/mcp auth monday` (미검증) |
+| agy | `agy mcp add monday https://mcp.monday.com/mcp` | 에이전트 실행 시 안내를 따름 (미검증) |
+
+Codex의 `mcp add`는 등록 직후 브라우저 승인을 기다리므로 비대화형 실행에서는 멈춘 것처럼 보입니다.
+등록 자체는 이미 끝난 상태이니, 사용자가 브라우저에서 승인하면 됩니다.
+
+**3) Google Calendar와 Slack은 CLI로 직접 등록할 수 없습니다**
+
+두 서비스의 공식 MCP는 OAuth 동적 클라이언트 등록을 지원하지 않고, 미리 발급된 OAuth 클라이언트
+(client secret)를 요구합니다(실측 2026-09-11). 그래서 `mcp add --url`로 등록해도 로그인 단계에서
+막힙니다. 1)의 AI 회사 커넥터로 연결하도록 안내하십시오. 그런 경로가 없는 에이전트라면
+"이 에이전트에서는 캘린더 연결이 어렵다. Claude 또는 ChatGPT(Codex) 계정으로 진행하라"고 사실대로
+알립니다. **연결 없이 캘린더 ID 등을 지어내서 진행하지 마십시오.**
+
+**4) 연결을 마친 뒤**
+
+OAuth 승인은 사용자가 브라우저에서 직접 해야 합니다(대신 할 수 없음). 새 연결은 보통 에이전트를
+다시 시작해야 도구로 나타나므로, **재시작 후 `셋업`을 다시 입력하라**고 안내하고 이번 실행은 여기서
+멈춥니다.
 
 **A-2. 디렉토리 준비:**
 - `~/.config/calendar-worklog/` 디렉토리 없으면 만든다 (Bash `mkdir -p`).
