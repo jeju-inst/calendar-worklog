@@ -61,13 +61,23 @@ calendar-worklog/
 └── examples/                      # (예정)
 ```
 
+> **유지보수 주의 — 프롬프트 본체가 두 벌입니다.**
+> `core/prompt.md`(에이전트 중립. ChatGPT·Claude Projects·Codex가 읽음)와
+> `plugin/skills/calendar-worklog/SKILL.md`(Claude Code 플러그인용)는 **같은 워크플로의
+> 평행 사본**입니다. 플러그인은 자기 디렉터리 밖 파일을 싣지 못해 include가 불가능합니다.
+> 한쪽 워크플로를 고치면 다른 쪽도 함께 고치세요.
+
 ## 빠르게 시작 (Claude Projects)
 
-1. `core/user-config.example.yaml`을 복사해서 본인 정보로 채우기
-2. claude.ai → Projects → New Project
-3. Project knowledge에 `core/prompt.md` + 본인 `user-config.yaml` 업로드
-4. Connectors에서 Google Calendar / Slack / monday.com 켜기
+1. claude.ai → Projects → New Project
+2. Project knowledge에 `core/prompt.md` 업로드
+3. Connectors에서 Google Calendar / Slack / monday.com 켜기
+4. 채팅에 `셋업` 입력 → **셋업 마법사**가 캘린더 4종·Slack ID·monday 보드를 직접 조회해
+   완성된 `user-config.yaml`을 출력 → 그 파일을 Project knowledge에 추가
 5. `"지참 0835"` 또는 `"어제 일정 정리해줘"` 입력
+
+캘린더 ID를 손으로 찾아 적을 필요가 없습니다. 마법사는 Claude Code 플러그인뿐 아니라
+**모든 트랙에서 동작**합니다(파일을 못 쓰는 채팅 환경에서는 YAML을 출력해 줍니다).
 
 자세한 단계는 [presets/claude-projects/README.md](./presets/claude-projects/README.md).
 
