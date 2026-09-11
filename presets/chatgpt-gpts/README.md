@@ -88,10 +88,12 @@ slack_user_id / monday 보드 ID / work_hours).
 **권장: ChatGPT Project** (Instructions + 파일 + 커넥터를 함께 묶음)
 1. 새 Project 생성 (예: `업무기록 도우미`)
 2. Project **Instructions** 칸에 `presets/chatgpt-gpts/instructions.md` 내용 붙여넣기
-3. Project 파일에 `core/prompt.md` + 본인 `user-config.yaml` 업로드
+3. Project 파일에 `core/prompt.md` + `core/user-config.example.yaml`(설정 형식 견본) 업로드.
+   `셋업`으로 만든 본인 `user-config.yaml`은 그 뒤에 추가
 
 또는 **Custom GPT** (공유·패키징용):
-- Instructions 칸에 `instructions.md` 붙여넣기, Knowledge에 `prompt.md` + `user-config.yaml` 업로드
+- Instructions 칸에 `instructions.md` 붙여넣기, Knowledge에 `prompt.md` + `user-config.example.yaml`(형식 견본)
+  + 본인 `user-config.yaml` 업로드
 - 단, Custom GPT는 MCP 커넥터 직접 호출이 표준이 아니므로 도구 호출은 위 계정 커넥터에 의존
 
 ## 4단계: 동작 확인
