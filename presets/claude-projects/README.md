@@ -32,9 +32,10 @@ Claude 사용자가 calendar-worklog를 Claude Projects 위에서 돌리는 방�
 3. 설명: 자유
 
 ### 3단계: Project Knowledge 업로드
-Project에 다음 두 파일을 업로드:
+Project에 다음 파일을 업로드:
 - `core/prompt.md`
-- 본인이 작성한 `user-config.yaml`
+- `core/user-config.example.yaml` (설정 형식 견본 — 셋업 마법사가 이 구조를 따름)
+- `셋업`으로 만든 본인 `user-config.yaml` (마법사를 돌린 뒤)
 
 > Custom instructions 칸에 prompt.md 내용을 직접 붙여넣어도 됩니다.
 > 둘 다 가능하지만 Knowledge 업로드 방식이 길이 제한에서 자유로움.
