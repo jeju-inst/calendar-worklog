@@ -91,7 +91,8 @@ data_sources:
     # 검색 syntax 호환성 메모:
     # - Claude/ChatGPT의 Slack connector: from:<@U...> on:YYYY-MM-DD 패턴 OK
     workspace_hint: "회사 워크스페이스 이름"
-    scope: public_only     # 공개 채널만 조회 (DM/비공개 제외)
+    scope: all             # 기본: 공개·비공개 채널 + DM 모두. 공개 채널만 보려면 public_only
+                           # (DM·비공개 본문은 옮기지 않고 상대·주제만 요약 — 보안/프라이버시 절 참조)
     account: user          # user(현재 본인 계정) | bot(런칭 시 전용 봇 계정)
 
   calendar:

@@ -175,6 +175,8 @@ OAuth 승인은 사용자가 브라우저에서 직접 해야 합니다(대신 �
 
 ### 0-D. 결과 미리보기 + 확인
 
+Slack 수집 범위 `data_sources.slack.scope`의 기본값은 `all`(채널+DM)입니다. 사용자가 원할 때만 `public_only`로 둡니다.
+
 채운 YAML 전문(민감값은 마스킹 — 캘린더 ID 끝 8자만 표시)을 보여주고 "이대로 저장할까요?"
 물어본다. 사용자 OK → 그대로 Write. 수정 요청 → 반영 후 다시 보여주기.
 
@@ -256,7 +258,8 @@ OAuth 승인은 사용자가 브라우저에서 직접 해야 합니다(대신 �
 1. **Slack**: 본인이 발신한 메시지 검색
    - 검색식 예: `from:<@USER_ID> on:YYYY-MM-DD`
    - 정렬: 시각순 오름차순
-   - 채널/DM 모두 포함
+   - 채널/DM 모두 포함. `data_sources.slack.scope`가 `public_only`일 때만 공개 채널로 제한하고,
+     키가 없거나 `all`이면 비공개 채널·DM까지 모두 봅니다(본문은 옮기지 않고 요약만)
 2. **과거 AI 세션** *(빈 슬롯의 메인 활동 추정에 핵심)*: 대상 일자 범위 대화 검색
    - **claude.ai 환경**: `conversation_search` / `recent_chats` 도구 있으면 사용 — 메시지 단위 timestamp 가용
    - **로컬 코딩 에이전트는 Claude Code·Codex·Antigravity 세 종류를 각각 확인** — 한 종류에서
