@@ -51,10 +51,18 @@ production(공개) 캘린더를 오염시키지 않음. Docker 불필요. 단 �
 
 ## 1단계: `user-config.yaml` 준비
 
-Claude 트랙과 **동일한 단일 소스**를 씁니다. 따로 만들지 말고 그대로 재사용:
-1. `core/user-config.example.yaml`을 복사해 `user-config.yaml`로 본인 정보 채움
-   (이미 Claude 트랙에서 만들었다면 그 파일 그대로)
-2. 캘린더 ID 4개 / slack_user_id / monday 보드 ID / work_hours 확인
+**손으로 채우지 마세요.** 3단계까지 마친 뒤 채팅에 `셋업`이라고 치면,
+`prompt.md`의 **워크플로 0(셋업 마법사)** 이 커넥터로 캘린더 4종·Slack ID·monday 보드를
+직접 조회해 완성된 YAML을 출력해 줍니다. 그걸 `user-config.yaml`로 저장해
+Project 파일에 올리면 끝입니다. 캘린더 ID를 찾아다닐 일이 없습니다.
+
+즉 순서는 **2단계(Apps 연결) → 3단계(프롬프트 탑재) → `셋업` → YAML 업로드** 입니다.
+
+이미 Claude·Codex 트랙에서 만든 `user-config.yaml`이 있으면 **그 파일을 그대로 재사용**하고
+마법사를 건너뜁니다. 트랙이 달라도 설정은 단일 소스입니다.
+
+직접 작성하고 싶으면 `core/user-config.example.yaml`을 복사해 채워도 됩니다(캘린더 ID 4개 /
+slack_user_id / monday 보드 ID / work_hours).
 
 ## 2단계: 데이터 소스 Apps 연결
 

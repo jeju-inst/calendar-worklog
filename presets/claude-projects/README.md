@@ -11,12 +11,20 @@ Claude 사용자가 calendar-worklog를 Claude Projects 위에서 돌리는 방�
 
 ## 5단계 셋업
 
-### 1단계: `user-config.yaml` 작성
-1. `core/user-config.example.yaml`을 로컬에 복사
-2. 본인 정보로 채움 (이름, slack user_id, timezone, work_hours)
-3. 본인의 캘린더 ID 4개를 채움
-   - Google Calendar 웹 → 설정 → 해당 캘린더 → "캘린더 통합" 섹션에 캘린더 ID
-4. 자주 보는 monday 보드 ID 채움 (선택)
+### 1단계: `user-config.yaml` — 마법사에게 맡기세요
+
+**캘린더 ID를 직접 찾지 마세요.** 2~4단계(Project 생성 → prompt.md 업로드 → Connectors 연결)를
+먼저 하고, Project 안에서 `셋업`이라고 치면 **워크플로 0(셋업 마법사)** 이 Connectors로
+캘린더 4종·Slack ID·monday 보드를 조회해 완성된 YAML을 출력합니다.
+그걸 `user-config.yaml`로 저장해 Project Knowledge에 추가하면 됩니다.
+
+즉 이 문서의 실제 순서는 **2 → 3 → 4 → `셋업` → 1(업로드) → 5** 입니다.
+
+다른 트랙에서 만든 `user-config.yaml`이 있으면 그대로 올리고 마법사를 건너뜁니다.
+
+직접 작성하려면 `core/user-config.example.yaml`을 복사해 채웁니다
+(이름·slack user_id·timezone·work_hours, 캘린더 ID 4개는 Google Calendar 웹 →
+설정 → 해당 캘린더 → "캘린더 통합", monday 보드 ID는 선택).
 
 ### 2단계: Claude Project 생성
 1. claude.ai → 좌측 메뉴 → Projects → **New Project**
