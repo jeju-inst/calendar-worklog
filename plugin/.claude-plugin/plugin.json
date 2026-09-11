@@ -1,7 +1,7 @@
 {
   "name": "calendar-worklog-ji",
   "description": "제주연구원(JI) 내부 캘린더 업무기록 어시스턴트. Slack/monday/AI 활동을 종합해 4종 캘린더(과제/근태/업무/기타)에 사후 업무일지를 기록한다.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": {
     "name": "Namun Cho",
     "url": "https://github.com/jeju-inst/calendar-worklog"
