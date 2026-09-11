@@ -16,8 +16,13 @@ Codex 사용자가 calendar-worklog를 돌리는 방법입니다. (코드 트랙
 
 ## 1단계: `user-config.yaml` 준비
 
-Claude/ChatGPT 트랙과 **동일한 단일 소스**를 재사용합니다.
-`core/user-config.example.yaml`을 복사해 채우거나, 이미 만든 파일 그대로.
+Claude/ChatGPT 트랙과 **동일한 단일 소스**를 재사용합니다. 이미 만든 파일이 있으면 그대로.
+
+없으면 2~3단계를 먼저 하고 `셋업`이라고 치면 **워크플로 0(셋업 마법사)** 이 커넥터로
+캘린더 4종·Slack ID·monday 보드를 조회해 채워 줍니다. Codex는 파일을 쓸 수 있으므로
+마법사가 `~/.config/calendar-worklog/user-config.yaml`에 직접 저장합니다.
+
+손으로 쓰려면 `core/user-config.example.yaml`을 복사해 채웁니다.
 
 ## 2단계: 커넥터(플러그인) 켜기
 
