@@ -20,6 +20,22 @@ mkdir -p "$LOGDIR"
 exec >>"$LOG" 2>&1
 echo "=== $(date '+%F %T %Z') 브리핑 시작 ==="
 
+# 중복 발송 가드 — 여러 머신에 브리핑을 걸어두면 같은 DM 이 그만큼 온다.
+# 담당 머신을 지정하면 나머지 머신은 스스로 빠진다. 설정 파일을 다른 머신에 복사해도
+# 값이 따라오므로, 복사한 쪽에서 조용히 또 보내는 일이 없다.
+#   설정: ~/.config/calendar-worklog/briefing.env 에  BRIEFING_HOST="studio"
+#   (파일이 없거나 값이 비면 지금까지와 동일하게 그냥 돈다 — 1대만 쓰는 사람은 신경 쓸 것 없음)
+BRIEFING_CONFIG="${BRIEFING_CONFIG:-$HOME/.config/calendar-worklog/briefing.env}"
+set -a
+[ -r "$BRIEFING_CONFIG" ] && . "$BRIEFING_CONFIG"
+set +a
+THIS_HOST=$(hostname -s)
+if [ -n "${BRIEFING_HOST:-}" ] && [ "$BRIEFING_HOST" != "$THIS_HOST" ]; then
+  echo "BRIEFING_SKIPPED: 이 머신($THIS_HOST)은 브리핑 담당이 아니다 (BRIEFING_HOST=$BRIEFING_HOST)"
+  echo "=== $(date '+%F %T') 종료(담당 아님) ==="
+  exit 0
+fi
+
 # 브리핑 전용 장기 토큰(claude setup-token 으로 발급)이 있으면 그걸로 인증한다.
 # 이러면 사용자가 평소 쓰는 대화형 claude 로그인(OAuth 세션)이 만료돼도 브리핑은
 # 자기 토큰으로 독립적으로 계속 돈다 — 2026-08-03 처럼 로그인 풀려 브리핑이 통째로
