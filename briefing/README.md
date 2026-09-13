@@ -79,6 +79,25 @@ env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin ./briefing/run-briefing.sh
 브리핑 자체는 위 두 단계로 끝난다. **오늘 할 일 리스트 동기화는 별도 설정**이 필요하고,
 안 해도 브리핑은 정상 동작한다 (아래 참조).
 
+## 여러 머신을 쓸 때 — 담당 머신 지정
+
+브리핑을 두 대 이상에 걸어두면 **같은 DM 이 그만큼 온다**. 담당 머신을 정해두면 나머지는
+스스로 빠진다.
+
+```sh
+# ~/.config/calendar-worklog/briefing.env  (레포 밖)
+BRIEFING_HOST="studio"      # hostname -s 값
+```
+
+설정 파일을 다른 머신에 복사해도 값이 따라오므로, 복사한 쪽에서 조용히 또 보내는 일이 없다.
+파일이 없거나 값이 비면 지금까지와 똑같이 그냥 돈다 — **한 대만 쓰면 신경 쓸 것 없다.**
+
+담당이 아닌 머신의 로그에는 이렇게 남는다.
+
+```
+BRIEFING_SKIPPED: 이 머신(mbp)은 브리핑 담당이 아니다 (BRIEFING_HOST=studio)
+```
+
 ## 오늘 할 일 캔버스 동기화
 
 브리핑이 뽑은 오늘 할 일을 매일 **Slack 캔버스 체크리스트**로 만들어 본인 DM에 공유한다.
