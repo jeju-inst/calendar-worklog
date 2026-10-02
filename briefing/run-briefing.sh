@@ -115,6 +115,9 @@ $(cat core/user-config.yaml)
 - **본문 블록(+TODO 블록)은 이 실행의 마지막 출력이다.** 그 뒤에 도구를 부르지 마라 —
   \`smon done\` 같은 완료 사인을 하려면 본문을 내기 *전에* 해라. (2026-09-30 본문 뒤에
   사인을 부르고 "끝났다" 한 줄로 마쳐 본문이 유실된 적 있음.)
+- **문자는 \`mcp__claude_ai_messages-mcp__*\` 를 먼저 써라.** 로컬 \`mcp__messages__*\`·\`msg\` 는
+  launchd 실행에서 chat.db 권한이 없어 실패한다(실측: 로컬 FAIL / 원격 OK). 원격이 안 되면
+  그때 로컬을 시도하고, 둘 다 안 되면 문자 섹션을 생략하고 그 사실만 적어라.
 - 이 실행에서 너는 **아무것도 직접 쓰지 않는다**(발송조차 러너가 한다): 캘린더 생성/수정,
   메일 회신, monday 수정, 메시지 답장, Slack 발송 전부 금지. 유일한 산출은 표준출력 텍스트다.
 $SEED_HINT
@@ -128,7 +131,7 @@ $CANVAS_HINT
 EOF
 )
 
-ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__claude_ai_Slack__slack_read_canvas,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
+ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__claude_ai_Slack__slack_read_canvas,mcp__claude_ai_messages-mcp__messages_threads,mcp__claude_ai_messages-mcp__messages_read,mcp__claude_ai_messages-mcp__messages_unread,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
 
 # perl alarm = macOS에 timeout(1)이 없어서 쓰는 대체
 # C-b(2026-09-30): **stream-json 으로 받아 어시스턴트 텍스트를 전부 모은다.** 기본(text) 출력은
