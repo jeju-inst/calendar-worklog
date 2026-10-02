@@ -40,7 +40,7 @@ worklog 본체(`core/prompt.md`)가 *어제 뭐 했나*를 캘린더에 기록�
 | 캘린더 | Google Calendar 커넥터 | ✅ |
 | Slack | Slack MCP | ✅ |
 | monday | monday.com 커넥터 | ✅ |
-| 문자/iMessage | `msg` (messages-cli MCP) | 로컬 전용 |
+| 문자/iMessage | messages-cli — 원격 MCP 우선, 로컬 `msg`/stdio 폴백 | 원격은 본인 맥의 앱 번들이 서비스 |
 | **메일 (ji.re.kr)** | `mailskill` 5동사 계약 | **❌ 웍스모바일 — 커넥터 없음** |
 
 메일만 커넥터 경로가 없어서 로컬 어댑터가 필수다. 프롬프트는 `mailskill`의 계약
@@ -335,6 +335,45 @@ launchd는 요일만 안다. 연가와 공휴일은 **프롬프트가 캘린더�
 
 같은 `claude -p` 텍스트 패턴을 쓰는 다른 무인 루틴도 같은 위험이 있다 — 산출물을 stdout
 마지막 메시지에서 뽑고 있으면 stream-json 으로 바꿀 것.
+
+### 문자는 왜 원격 MCP 로 읽나 — launchd 는 chat.db 에 닿지 못한다 (2026-10-02)
+
+브리핑이 줄곧 꼬리에 `문자는 읽지 못함(chat.db 전체 디스크 접근 권한 없음)` 을 달고 나갔다.
+코드 문제가 아니라 **TCC(전체 디스크 접근) 귀속 문제**다.
+
+일회성 LaunchAgent 로 실측한 결과:
+
+| 맥락 | 최상위 프로세스 | chat.db |
+|---|---|---|
+| launchd (브리핑과 동일) | `/bin/bash` (PPID 1) | **DENIED** — `[Errno 1] Operation not permitted` |
+| 터미널 | bash ← zsh | OK (245,666행) |
+
+같은 python3 인데 조상만 다르다. TCC 는 syscall 하는 바이너리가 아니라 **책임 프로세스**
+(launchd 잡의 최상위 = 이 스크립트의 셔뱅 인터프리터 `/bin/bash`)로 판정하기 때문이다.
+그래서 python3 나 messages-cli 에 권한을 줘도 안 먹는다.
+
+해법은 **이미 전체 디스크 접근을 가진 앱 번들이 서비스하는 원격 MCP** 를 쓰는 것이다.
+`~/Applications/MessagesRemote.app`(LaunchAgent `com.namun.msg-http`)이 그 패턴으로 돌고 있다 —
+Mach-O 런처가 번들 프로세스로 살아 있어 TCC 가 그 하위 트리를 **앱의 권한으로** 판정한다
+(그 번들 `Contents/Resources/run.sh` 머리말에 설명이 있다).
+
+launchd 직계(PPID 1) 맥락에서 `claude -p` 로 두 경로를 같이 호출해 확인했다:
+
+```
+PROBE_REMOTE_OK
+PROBE_LOCAL_FAIL:chat.db 읽기 권한 없음(Full Disk Access 필요)
+```
+
+→ ALLOWED 에 원격 도구를 **먼저** 두고 로컬은 폴백으로 남겼다. 동사 계약
+(`messages_threads/read/unread`)이 양쪽 동일하므로 프롬프트의 백엔드 중립 원칙은 그대로다.
+
+**다른 선택지를 안 택한 이유**: `/bin/bash` 를 전체 디스크 접근에 넣으면 **앞으로 거는 모든
+launchd bash 잡**이 같이 열려서 전사 배포 안내에 쓸 수 없다. 브리핑 전용 .app 래퍼를 또 만드는
+것은 권한 범위는 좁지만 각자 한 번씩 드래그해야 해서 설치가 길어진다. 원격 경로는 권한 변경이
+0 이고 다른 머신에서 브리핑을 돌릴 때도 그대로 쓰인다.
+
+**대가**: 터널(`msg.namun.net`)에 묶인다. 터널이 죽으면 문자 섹션이 빠지고, 그 사실은 꼬리의
+소스 줄에 적힌다. 터널 불안정이 반복되면 전용 .app 래퍼로 옮기는 것이 다음 수다.
 
 ## 알려진 한계
 
