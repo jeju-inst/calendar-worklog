@@ -155,7 +155,15 @@ echo "--- claude rc=$RC ---"
 #  러너로 옮겨 근본 제거.) 모델이 낼 상태 토큰은 SKIPPED(비근무일)/FAILED(회복불가)뿐.
 KINDS=$(printf '%s\n' "$OUT" | /usr/bin/grep -oE 'BRIEFING_(SKIPPED|FAILED)' | sort -u)
 # 모델이 낸 DM 본문 — 마커는 공백 허용해 관대하게 뽑는다. 러너가 이걸 봇으로 보낸다.
-BODY=$(printf '%s\n' "$OUT" | /usr/bin/awk '/^[[:space:]]*BRIEFING_DM_START[[:space:]]*$/{f=1;next} /^[[:space:]]*BRIEFING_DM_END[[:space:]]*$/{f=0} f')
+# 블록이 여러 번 나오면 **마지막 완결 블록만** 쓴다. stream-json 수집(#32)으로 어시스턴트
+# 텍스트를 전부 모으게 되면서, 모델이 초안 블록을 냈다가 도구를 더 부르고 수정 블록을 다시 내면
+# 두 블록이 이어붙어 DM 에 상충하는 본문이 두 번 실릴 수 있다. END 를 만난 블록만 채택하므로
+# 마지막 블록이 안 닫혔으면 그 앞의 완결 블록으로 되돌아간다(#32 리뷰 P2).
+BODY=$(printf '%s\n' "$OUT" | /usr/bin/awk '
+  /^[[:space:]]*BRIEFING_DM_START[[:space:]]*$/ {f=1; buf=""; next}
+  /^[[:space:]]*BRIEFING_DM_END[[:space:]]*$/   {if (f) {last=buf; f=0} next}
+  f {buf = buf $0 "\n"}
+  END {printf "%s", last}')
 BODY_TRIM=$(printf '%s' "$BODY" | tr -d '[:space:]')
 
 # 판정: 하드 실패(rc·모델 FAILED) → 비근무일 건너뜀 → 본문 있으면 러너 발송으로 성공/실패.
@@ -223,7 +231,12 @@ echo "=== $(date '+%F %T') 브리핑 완료 (봇 DM 발송 확인) ==="
 # 판정 기준은 "블록 내용이 있나"가 아니라 **"블록이 있나"** 다 — 할 일이 없는 날에도
 # 모델은 빈 블록을 내게 되어 있고(prompt.md 단계 G), 그런 날에도 오래된 캔버스 프루닝 같은
 # 유지보수는 돌아야 한다. 블록 자체가 없는 실행(건너뜀 등)만 조용히 지나간다.
-TODO=$(printf '%s\n' "$OUT" | /usr/bin/awk '/TODO_LIST_START/{f=1;next} /TODO_LIST_END/{f=0} f')
+# 본문과 같은 이유로 마지막 완결 블록만 쓴다 — 중복되면 캔버스에 할 일이 두 벌 들어간다.
+TODO=$(printf '%s\n' "$OUT" | /usr/bin/awk '
+  /TODO_LIST_START/ {f=1; buf=""; next}
+  /TODO_LIST_END/   {if (f) {last=buf; f=0} next}
+  f {buf = buf $0 "\n"}
+  END {printf "%s", last}')
 if printf '%s' "$OUT" | /usr/bin/grep -q 'TODO_LIST_START'; then
   if printf '%s\n' "$TODO" | /usr/bin/python3 "$REPO/briefing/canvas-sync.py" >>"$LOG" 2>&1; then
     echo "오늘 할 일 캔버스 동기화 완료"
