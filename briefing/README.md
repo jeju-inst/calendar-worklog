@@ -22,7 +22,8 @@ worklog 본체(`core/prompt.md`)가 *어제 뭐 했나*를 캘린더에 기록�
 | 파일 | 역할 |
 |---|---|
 | `prompt.md` | 브리핑 워크플로 (단계 A~G + 순위 기준) |
-| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p` 실행 + 실패 알림 + 캔버스 동기화 호출 |
+| `run-briefing.sh` | launchd가 부르는 러너. 프롬프트 조립 + `claude -p`(stream-json) 실행 + 실패 알림 + 캔버스 동기화 호출 |
+| `stream-text.py` | `claude -p --output-format stream-json` 출력에서 어시스턴트 텍스트를 **전부** 모아 러너에 넘김. 기본 text 출력은 마지막 메시지만 내서 본문이 유실된 적 있음(2026-09-30) |
 | `canvas-sync.py` | 모델이 낸 TODO 블록을 Slack 캔버스 체크리스트로 생성·공유·프루닝. 러너가 **성공 실행에서만** 호출(비차단) |
 | `todo-list.example.json` | 캔버스 동기화 설정 템플릿. 본인 값은 레포 밖(`~/.config/calendar-worklog/`)에 둔다 |
 | `notify.py` | 독립 경로 Slack 알림(봇 토큰 직접). claude가 죽어도 이 경로는 산다 |
@@ -314,6 +315,26 @@ launchd는 요일만 안다. 연가와 공휴일은 **프롬프트가 캘린더�
 - 러너가 `BRIEFING_SENT`를 못 받으면 macOS 알림을 띄운다. 브리핑이 *안 온 것*과
   *실패한 것*을 구분할 수 있어야 한다.
 - 캘린더조차 못 읽으면 브리핑이 성립하지 않으므로 실패 보고만 한다.
+
+### 본문 유실 — 마지막 메시지만 stdout 에 실리던 것, 해결됨 (2026-09-30)
+
+증상은 rc=0 인데 "DM 본문 블록(BRIEFING_DM_START/END)이 없거나 비어 있음"으로 실패하고,
+로그의 모델 출력이 "The run finished with its only output." 한 줄뿐인 것이었다. 트랜스크립트
+(`~/.claude/projects/<repo>/<session>.jsonl`)에는 본문이 멀쩡히 있었다.
+
+원인은 `claude -p` 의 기본(text) 출력이 **마지막 어시스턴트 메시지만** stdout 에 내는 것.
+모델이 본문 블록을 낸 같은 턴에 도구를 하나 더 부르고(글로벌 CLAUDE.md 의 `smon done` 완료
+사인) 그 결과를 받아 "끝났다" 한 줄로 마치자, 러너는 그 한 줄만 받았다. 같은 사인을 9/15·9/21
+에도 불렀지만 본문 *앞*이라 무사했다 — 순서는 모델 재량이라 언제든 뒤집힌다. CLI 버전(당일
+2.1.285 자동 업데이트)·프롬프트 변경은 무관(문구가 바이너리에 없고 레포는 변경 없음).
+
+고친 것:
+1. 러너가 `--output-format stream-json --verbose` 로 받아 `stream-text.py` 로 어시스턴트
+   텍스트를 **턴과 무관하게 전부** 이어붙인다. 판정 awk/grep 은 그대로.
+2. 보조로 prompt.md 단계 F와 러너 지시문에 "본문 뒤에 도구 호출 금지, 완료 사인은 본문 앞"을 명시.
+
+같은 `claude -p` 텍스트 패턴을 쓰는 다른 무인 루틴도 같은 위험이 있다 — 산출물을 stdout
+마지막 메시지에서 뽑고 있으면 stream-json 으로 바꿀 것.
 
 ## 알려진 한계
 

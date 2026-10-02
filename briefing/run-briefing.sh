@@ -112,6 +112,9 @@ $(cat core/user-config.yaml)
 - 캘린더는 위 config의 \`calendars\` 4개 + \`read_only_calendars\`를 **ID로 지정해** 조회한다.
   primary 캘린더만 보면 안 된다(비어 있다).
 - 질문하지 말고, 확인 게이트 없이 진행한다. 애매하면 브리핑 본문에 "확인 필요"로 적는다.
+- **본문 블록(+TODO 블록)은 이 실행의 마지막 출력이다.** 그 뒤에 도구를 부르지 마라 —
+  \`smon done\` 같은 완료 사인을 하려면 본문을 내기 *전에* 해라. (2026-09-30 본문 뒤에
+  사인을 부르고 "끝났다" 한 줄로 마쳐 본문이 유실된 적 있음.)
 - 이 실행에서 너는 **아무것도 직접 쓰지 않는다**(발송조차 러너가 한다): 캘린더 생성/수정,
   메일 회신, monday 수정, 메시지 답장, Slack 발송 전부 금지. 유일한 산출은 표준출력 텍스트다.
 $SEED_HINT
@@ -128,9 +131,17 @@ EOF
 ALLOWED='Bash(mailskill:*),Bash(gw:*),Bash(msg:*),Bash(smon:*),Bash(date:*),mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_monday_com__get_user_context,mcp__claude_ai_monday_com__get_board_items_page,mcp__claude_ai_monday_com__get_updates,mcp__claude_ai_monday_com__get_board_activity,mcp__claude_ai_monday_com__all_api_read,mcp__claude_ai_Google_Calendar__list_events,mcp__claude_ai_Google_Calendar__list_calendars,mcp__plugin_slack_slack__slack_search_public_and_private,mcp__plugin_slack_slack__slack_read_thread,mcp__plugin_slack_slack__slack_read_channel,mcp__plugin_slack_slack__slack_search_users,mcp__claude_ai_Slack__slack_read_canvas,mcp__messages__messages_threads,mcp__messages__messages_read,mcp__messages__messages_unread'
 
 # perl alarm = macOS에 timeout(1)이 없어서 쓰는 대체
-OUT=$(perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
-      claude -p "$PROMPT" --allowedTools "$ALLOWED" </dev/null 2>&1)
+# C-b(2026-09-30): **stream-json 으로 받아 어시스턴트 텍스트를 전부 모은다.** 기본(text) 출력은
+# 모델의 *마지막* 메시지만 내므로, 모델이 본문 블록을 낸 뒤 도구를 하나 더 부르고(9/30 실측:
+# 글로벌 CLAUDE.md 의 `smon done` 완료 사인) "끝났다" 한 줄로 마치면 본문이 stdout 에서 통째로
+# 사라졌다(트랜스크립트엔 멀쩡히 있었음). 성공이 모델의 마지막 한 줄에 걸려 있던 C-a 의 취약점이
+# 다른 형태로 재발한 것 → 러너가 턴과 무관하게 텍스트를 이어붙여 근본 제거. 아래 판정 로직은
+# 예전 text 모드 OUT 과 동일한 텍스트를 받으므로 그대로다. 원본 스트림(도구 결과 포함, 수백 KB)은
+# 로그에 남기지 않는다 — 같은 내용이 ~/.claude/projects/<repo>/<session>.jsonl 에 이미 있다.
+RAW=$(perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
+      claude -p "$PROMPT" --allowedTools "$ALLOWED" --output-format stream-json --verbose </dev/null 2>&1)
 RC=$?
+OUT=$(printf '%s\n' "$RAW" | /usr/bin/python3 "$REPO/briefing/stream-text.py")
 
 echo "$OUT"
 echo "--- claude rc=$RC ---"
