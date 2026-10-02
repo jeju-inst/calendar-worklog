@@ -232,17 +232,26 @@ echo "=== $(date '+%F %T') 브리핑 완료 (봇 DM 발송 확인) ==="
 # 모델은 빈 블록을 내게 되어 있고(prompt.md 단계 G), 그런 날에도 오래된 캔버스 프루닝 같은
 # 유지보수는 돌아야 한다. 블록 자체가 없는 실행(건너뜀 등)만 조용히 지나간다.
 # 본문과 같은 이유로 마지막 완결 블록만 쓴다 — 중복되면 캔버스에 할 일이 두 벌 들어간다.
+# 마커는 **단독 줄만** 매치한다(본문 파서와 동일). 할 일 항목이 `TODO_LIST_START` 라는 글자를
+# 품고 있으면(예: "이 파서 고치기" 같은 항목) 그 줄에서 버퍼가 비워져 앞서 모은 항목이
+# 통째로 날아간다 — 출력 계약도 구분자를 단독 줄로 정의한다 (#33 리뷰 P2).
+# 종료코드로 **완결 블록이 있었는지**를 같이 돌려준다. 블록이 TODO_LIST_END 로 닫히지 않으면
+# 내용은 비는데 START 만 보고 동기화를 돌리면 "빈 동기화"가 성공으로 기록돼 잘린 사실이
+# 묻힌다. 반대로 **명시적으로 빈 완결 블록**(할 일 없는 날)은 정상이므로 그대로 받는다.
 TODO=$(printf '%s\n' "$OUT" | /usr/bin/awk '
-  /TODO_LIST_START/ {f=1; buf=""; next}
-  /TODO_LIST_END/   {if (f) {last=buf; f=0} next}
+  /^[[:space:]]*TODO_LIST_START[[:space:]]*$/ {f=1; buf=""; next}
+  /^[[:space:]]*TODO_LIST_END[[:space:]]*$/   {if (f) {last=buf; got=1; f=0} next}
   f {buf = buf $0 "\n"}
-  END {printf "%s", last}')
-if printf '%s' "$OUT" | /usr/bin/grep -q 'TODO_LIST_START'; then
+  END {printf "%s", last; exit (got ? 0 : 1)}')
+TODO_COMPLETE=$?
+if [ "$TODO_COMPLETE" -eq 0 ]; then
   if printf '%s\n' "$TODO" | /usr/bin/python3 "$REPO/briefing/canvas-sync.py" >>"$LOG" 2>&1; then
     echo "오늘 할 일 캔버스 동기화 완료"
   else
     echo "!! 캔버스 동기화 실패 (브리핑 자체는 성공) — 로그 확인"
   fi
+elif printf '%s\n' "$OUT" | /usr/bin/grep -qE '^[[:space:]]*TODO_LIST_START[[:space:]]*$'; then
+  echo "!! TODO 블록이 TODO_LIST_END 로 닫히지 않음 — 캔버스 동기화 건너뜀 (브리핑 자체는 성공)"
 else
   echo "TODO 블록 없음 — 캔버스 동기화 건너뜀"
 fi
