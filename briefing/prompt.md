@@ -32,7 +32,7 @@
 | 캘린더 읽기 | Google Calendar (`list_events`) | 브리핑 성립 안 함 — 중단하고 실패 보고 |
 | 메일 읽기 (업무·기관) | `mailskill list/search` (로컬) | 메일 섹션 생략 |
 | 메일 읽기 (연구 gmail) | `mailskill` gmail 계정 **우선**, 없으면 Gmail 커넥터 | 연구 섹션 실패 표시 |
-| 메시지 읽기 | `msg` / messages-cli (macOS 로컬 전용) | 문자 섹션 생략 |
+| 메시지 읽기 | messages-cli — **원격 MCP 우선**, 로컬 `msg`/stdio 는 폴백 | 문자 섹션 생략 |
 | 메시지 검색 | Slack (`slack_search_*`, `slack_read_channel`) | Slack 섹션 생략 |
 | 과제 조회 | monday.com (`get_board_items_page`, `get_updates`) | monday 섹션 생략 |
 | 이어서 할 작업 (내 AI 세션) | `smon export`/`smon` (로컬) | smon 섹션 생략 |
@@ -197,7 +197,9 @@ stdout이 비어 있으면 그건 "메일 없음"이 아니라 **호출 실패**
 - **회신하지 않습니다.** 회신이 필요하다는 판단만 브리핑에 싣습니다.
 
 ### C-2. 문자 / iMessage
-- `msg`로 시간창 내 수신 메시지를 훑습니다.
+- messages 도구로 시간창 내 수신 메시지를 훑습니다. **원격 MCP(`mcp__claude_ai_messages-mcp__*`)를
+  먼저** 쓰고, 안 되면 로컬(`mcp__messages__*` / `msg`)로 폴백합니다. 무인 실행에서는 로컬
+  경로가 chat.db 권한 때문에 막혀 있습니다(아래 백엔드 중립 원칙은 그대로 — 동사 계약은 같습니다).
 - **버립니다**: 인증번호, 광고·스팸, 택배·결제 알림, 명백한 사적 대화.
 - **남깁니다**: 업무 관련 요청·일정 조율·외부 연락처의 연락.
 - 개인 대화는 브리핑에 옮기지 않습니다. 판단이 애매하면 제외하고, 제외했다는 사실만
