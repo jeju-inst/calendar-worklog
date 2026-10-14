@@ -59,3 +59,36 @@ CLIENT_SECRET_FILE=~/Downloads/client_secret_xxx.json \
 ## 토큰 무효화
 유출 의심 시 즉시: Google 계정(calendar@) → 보안 → 서드파티 액세스에서 해당 앱 권한 제거,
 또는 GCP 에서 OAuth 클라이언트 삭제. 토큰은 readonly 라 피해 범위도 읽기 한정.
+
+## Google OAuth 클라이언트의 "agentic" 표시 — 이 클라이언트는 표시하지 않는다 (2026-10-14 판단)
+
+2026-10-12 Google Workspace 공지(`[Action Required] Mark AI agent OAuth clients as agentic for
+Google Workspace MCP by Nov 11, 2026`)로 OAuth 클라이언트에 **agentic 플래그**가 생겼다
+(콘솔 문구 "Use this client for an AI-powered agent", API 필드 `is_agentic`). 일정은 세 단계다.
+
+| 날짜 | 무엇이 바뀌나 |
+|---|---|
+| 2026-10-12 | 콘솔에서 기존·신규 클라이언트에 agentic 표시 가능 |
+| 2026-11-11 | **Workspace MCP 서버가 표시 없는 클라이언트의 요청을 거부** |
+| 2026-11-12 | **기존 클라이언트의 설정이 영구 고정** — 바꾸려면 새 클라이언트 ID 를 만들어야 함 |
+
+**이 루틴의 `CAL_CLIENT_ID` 는 표시하지 않는다.** 이유:
+
+- 이 클라이언트는 Workspace MCP 서버를 부르지 않고 **Calendar REST API(`calendar.readonly`)만**
+  쓴다. 공지도 "AI 에이전트가 아니고 REST API 만 쓰는 앱은 조치 불필요" 라고 명시했다 →
+  **11/11 에 깨지는 것이 없다.** (호출자가 클라우드 루틴이라 '에이전트'이긴 하지만, 판정 기준은
+  호출자가 아니라 **MCP 서버를 부르는지** 다.)
+- 플래그는 스코프를 늘려 주지 않는다. 대신 **에이전트 전용 관리자 통제(agent access controls)의
+  대상**이 된다. 도메인 관리자 정책이 한 번 바뀌면 무인 루틴이 멈추는 경로를 이득 없이 만들 이유가 없다.
+- Google 권고 자체가 "에이전트 트래픽과 일반 트래픽은 클라이언트를 분리하라" 다.
+- **11/12 의 영구 고정은 기존 클라이언트에만 적용된다.** 나중에 Calendar MCP 등으로 옮기고 싶으면
+  그때 **agentic 으로 새 클라이언트를 만들면 된다** — 지금 서둘러 결정할 이유가 없다.
+
+열려 있는 것 하나: 공지가 영향 프로젝트로 지목한 것은 `worklog-mcp-502409` 인데, 이 이름은
+이 저장소·로컬 어디에도 없다(전수 grep 0건). 셋업 문서(③)는 클라이언트를
+`ji-user-calendar-provisioning` 에 만들라고 적혀 있으나 실제로 어디에 만들었는지는 콘솔에서만 확인된다.
+**`worklog-mcp-502409` 안의 클라이언트가 무엇인지 콘솔에서 확인할 것** — 그게 이 `CAL_CLIENT_ID`
+라면 위 판단이 그대로 적용되고, 쓰지 않는 실험용이면 삭제가 정답이다.
+
+출처: Google Cloud 콘솔 도움말 "Manage OAuth Clients"(support.google.com/cloud/answer/15549257),
+`developers.google.com/workspace/guides/configure-mcp-servers`, 2026-10-12 공지 메일(`ji` 계정 11049).
