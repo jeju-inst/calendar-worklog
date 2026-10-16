@@ -51,7 +51,7 @@ CLIENT_SECRET_FILE=~/Downloads/client_secret_xxx.json \
 - 저장소: 이 repo
 - 커넥터: **Slack + monday** 체크 (Google Calendar 커넥터 불필요)
 - 프롬프트: `automation/routine-prompt.md` 내용
-- 환경변수: `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS`
+- 환경변수: `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS` `ALERT_DM_UID`(실패 알림을 받을 Slack UID)
 
 ## 멤버 변동 시
 구성원 추가/제외되면 ⓪만 다시 실행해 `MEMBER_CALENDAR_IDS` 갱신. 나머지 토큰/클라이언트는 그대로.

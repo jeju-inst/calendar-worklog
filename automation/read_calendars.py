@@ -14,6 +14,12 @@ calendar@ji.re.kr(전 구성원 [과제]/[업무]/[근태]/[기타] 캘린더의
 
 출력: [{id, summary, tag, member, events:[{summary,start,end,location,description}]}]
   summary 예 "[과제] 고선영" → tag="[과제]", member="고선영" 자동 파싱.
+  읽기에 실패한 캘린더는 events=[] 에 **`error` 필드**가 붙는다. 읽는 쪽은 이것을
+  "일정 없음"이 아니라 "읽지 못함"으로 구분해야 한다(그러지 않으면 조용히 사람이 빠진다).
+
+종료코드: 전 캘린더를 하나도 읽지 못하면 **1**. 권한·토큰 문제로 통째로 막힌 경우
+  빈 보고를 만들어 올리는 것보다 요란하게 죽는 쪽이 낫다. 일부만 실패하면 0 으로 끝내되
+  실패분은 `error` 로 남긴다.
 """
 import os
 import sys
@@ -64,6 +70,27 @@ def _service():
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
+def _fetch_events(svc, cid: str, week_min: str, week_max: str):
+    evs = []
+    page = None
+    while True:
+        resp = svc.events().list(
+            calendarId=cid, timeMin=week_min, timeMax=week_max,
+            singleEvents=True, orderBy="startTime", maxResults=250, pageToken=page,
+        ).execute()
+        for e in resp.get("items", []):
+            evs.append({
+                "summary": e.get("summary", ""),
+                "start": e.get("start", {}).get("dateTime") or e.get("start", {}).get("date"),
+                "end": e.get("end", {}).get("dateTime") or e.get("end", {}).get("date"),
+                "location": e.get("location", ""),
+                "description": e.get("description", ""),
+            })
+        page = resp.get("nextPageToken")
+        if not page:
+            return evs
+
+
 def _parse_summary(summary: str):
     for t in TAGS:
         if summary.startswith(t):
@@ -80,6 +107,7 @@ def main():
     svc = _service()
 
     out = []
+    errors = []
     for cid in ids:
         try:
             summary = svc.calendars().get(calendarId=cid).execute().get("summary", cid)
@@ -87,25 +115,23 @@ def main():
             print(f"  ! calendars.get failed {cid[:20]}…: {str(e)[:80]}", file=sys.stderr)
             summary = cid
         tag, member = _parse_summary(summary)
-        evs = []
-        page = None
-        while True:
-            resp = svc.events().list(
-                calendarId=cid, timeMin=week_min, timeMax=week_max,
-                singleEvents=True, orderBy="startTime", maxResults=250, pageToken=page,
-            ).execute()
-            for e in resp.get("items", []):
-                evs.append({
-                    "summary": e.get("summary", ""),
-                    "start": e.get("start", {}).get("dateTime") or e.get("start", {}).get("date"),
-                    "end": e.get("end", {}).get("dateTime") or e.get("end", {}).get("date"),
-                    "location": e.get("location", ""),
-                    "description": e.get("description", ""),
-                })
-            page = resp.get("nextPageToken")
-            if not page:
-                break
+        try:
+            evs = _fetch_events(svc, cid, week_min, week_max)
+        except Exception as e:  # noqa: BLE001
+            # 여기서 죽이지 않는다. 한 캘린더가 막혔다고 나머지 보고까지 날리면 손해가 더 크다.
+            # 대신 error 를 달아 "일정 없음"과 구분되게 남긴다.
+            reason = str(e)[:200]
+            print(f"  ! events.list failed {cid[:20]}…: {reason[:80]}", file=sys.stderr)
+            errors.append((cid, reason))
+            out.append({"id": cid, "summary": summary, "tag": tag, "member": member,
+                        "events": [], "error": reason})
+            continue
         out.append({"id": cid, "summary": summary, "tag": tag, "member": member, "events": evs})
+
+    if ids and len(errors) == len(ids):
+        # 전부 실패 = 토큰 만료·권한 회수·정책 차단 같은 전역 원인이다. 빈 덤프를 넘기면
+        # 보고가 "전원 기록 없음"으로 조용히 완성되므로, 여기서 끊는다.
+        sys.exit(f"all {len(ids)} calendars failed to read — {errors[0][1]}")
 
     payload = json.dumps(out, ensure_ascii=False, indent=1)
     outfile = os.environ.get("OUTFILE")
@@ -113,7 +139,8 @@ def main():
         with open(outfile, "w", encoding="utf-8") as f:
             f.write(payload)
         n = sum(len(o["events"]) for o in out)
-        print(f"wrote {outfile}: {len(out)} calendars, {n} events", file=sys.stderr)
+        failed = f", {len(errors)} unreadable" if errors else ""
+        print(f"wrote {outfile}: {len(out)} calendars, {n} events{failed}", file=sys.stderr)
     else:
         print(payload)
 
