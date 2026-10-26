@@ -51,7 +51,7 @@ CLIENT_SECRET_FILE=~/Downloads/client_secret_xxx.json \
 - 저장소: 이 repo
 - 커넥터: **Slack + monday** 체크 (Google Calendar 커넥터 불필요)
 - 프롬프트: `automation/routine-prompt.md` 내용
-- 환경변수: `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS`
+- 환경변수: `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS` `ALERT_DM_UID`(실패 알림을 받을 Slack UID)
 
 ## 멤버 변동 시
 구성원 추가/제외되면 ⓪만 다시 실행해 `MEMBER_CALENDAR_IDS` 갱신. 나머지 토큰/클라이언트는 그대로.
@@ -92,12 +92,13 @@ Google Workspace MCP by Nov 11, 2026`)로 OAuth 클라이언트에 **agentic 플
 표시해도 **스코프는 늘지 않는다**(공지·도움말 모두 명시). 대신 에이전트 전용 관리자 통제의 대상이
 되는데, 그것이 바로 의도된 동작이고 관리자 콘솔은 우리가 쥐고 있다.
 
-다만 **그 위험을 감지할 장치는 지금 없다.** 에이전트 정책이 캘린더 호출을 막으면
-`read_calendars.py` 의 `events().list(...).execute()` 가 그대로 예외를 던져 게시 전에 죽고
-(캘린더별 `except` 는 `calendars().get` 에만 있다), 이 루틴은 **실패를 Slack 에 알리지 않는다** —
-아침 브리핑의 `notify.py` 같은 경로가 없어서, 금요일에 보고 2건이 올라오지 않은 것으로만 알 수 있다.
-표시 후 첫 금요일(11/13)에는 게시 여부를 눈으로 확인할 것. 실패 알림을 붙이려면 루틴 프롬프트에
-경로를 추가해야 하고, 그러면 `/schedule` 에 프롬프트를 다시 붙여넣어야 한다(별도 작업).
+그 위험을 감지할 장치는 **이 PR 에서 붙였다**(처음 이 절을 쓸 때는 없었다). 에이전트 정책이
+캘린더 호출을 막으면 `read_calendars.py` 가 그 캘린더만 `error` 로 남기고(전부 막히면 exit 1),
+루틴은 단계 6에서 `ALERT_DM_UID` 로 DM 을 보낸다 — 보고를 2건 중 1건만 올린 경우도 포함이다.
+
+**단, 알림은 `/schedule` 에 프롬프트를 다시 붙여넣은 뒤부터 동작한다.** 코드(`read_calendars.py`)는
+머지만으로 적용되지만 단계 6은 프롬프트에 있고, 클라우드 루틴은 등록 당시 붙여넣은 텍스트로 돈다.
+재붙여넣기 전까지는 여전히 **금요일에 보고가 올라왔는지 눈으로 봐야 한다** — 표시 후 첫 금요일(11/13).
 
 공지의 "에이전트용·비에이전트용 클라이언트를 분리하라" 권고에 따라 **전용 클라이언트를 새로 만드는
 방법도 있으나**, 이 클라이언트는 애초에 이 무인 루틴만 쓰므로 분리할 비에이전트 트래픽이 없다 →

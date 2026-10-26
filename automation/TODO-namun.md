@@ -27,11 +27,12 @@ CAL_CLIENT_ID=<복사한 id> CAL_CLIENT_SECRET=<복사한 secret> \
 - 저장소: 이 repo (`calendar-worklog`)
 - 커넥터: **Slack + monday 만 체크** (Google Calendar 커넥터 불필요)
 - 프롬프트: `automation/routine-prompt.md` 내용 붙여넣기
-- 환경변수 4개:
+- 환경변수 5개:
   - `CAL_CLIENT_ID`
   - `CAL_CLIENT_SECRET`
   - `CAL_REFRESH_TOKEN`
   - `MEMBER_CALENDAR_IDS` (= `scratch/calendar_ids_env.json` 내용)
+  - `ALERT_DM_UID` (실패 알림 DM 을 받을 Slack UID)
 
 ---
 ## 어시스턴트가 먼저 끝내줄 것 (네 승인 대기)
