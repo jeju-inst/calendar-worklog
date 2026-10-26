@@ -37,8 +37,9 @@
     `get_refresh_token.py` 가 파일 대신 이 두 값을 env 로 받는 이유.
 - ☑ 2. refresh token 발급 (`calendar@ji.re.kr` 로그인, readonly 허용)
 - ☑ 4. `/schedule` 루틴 등록 — 매주 금 18:00, 커넥터는 **Slack + monday 만**
-  (Google Calendar 커넥터 불필요), env 5개:
-  `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS` `ALERT_DM_UID`
+  (Google Calendar 커넥터 불필요), 당시 넣은 env 4개:
+  `CAL_CLIENT_ID` `CAL_CLIENT_SECRET` `CAL_REFRESH_TOKEN` `MEMBER_CALENDAR_IDS`
+  - **`ALERT_DM_UID` 는 아직 없다** — 위 B 에서 프롬프트를 재붙여넣을 때 함께 추가한다.
 
 ## 멤버 변동이 있었을 때만
 - 현재 `scratch/calendar_ids_env.json` = 88개, hub_readable=88 검증됨. 변동 없으면 건너뜀.
