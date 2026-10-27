@@ -1,0 +1,243 @@
+{
+  "_설명": "core/prompt.md ↔ 플러그인 스킬의 의도적인 차이. check-prompt-sync.py 가 이 항목은 경고하지 않는다. kind=section|line, side=core|plugin|both(어느 쪽에만 있는가), contains=문장 일부(line 일 때). 새 예외는 reason 없이 넣지 말 것.",
+  "exceptions": [
+    {
+      "kind": "section",
+      "side": "plugin",
+      "workflow": "설정 로드",
+      "reason": "플러그인은 ~/.config/calendar-worklog/user-config.yaml 을 직접 읽는다. core 는 채팅 지식에 함께 업로드된 YAML 을 쓰므로 머리말 한 줄로 갈음한다."
+    },
+    {
+      "kind": "section",
+      "side": "plugin",
+      "workflow": "네트워크",
+      "reason": "로컬에서 Google API 스크립트를 쓸 때만 해당. 채팅 트랙에는 스크립트 실행이 없다."
+    },
+    {
+      "kind": "section",
+      "side": "core",
+      "workflow": "WF4",
+      "reason": "미구현 예정 워크플로. 플러그인은 호출당 분량 때문에 docs/planned-workflows.md 로 뺐다(2026-10-27)."
+    },
+    {
+      "kind": "section",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-A-2",
+      "reason": "같은 내용이 플러그인에서는 0-A 안의 A-1-1 로 들어가 있다(단계 번호만 다름)."
+    },
+    {
+      "kind": "section",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-F",
+      "reason": "플러그인은 동작 확인을 0-E 2번에 합쳐 두었다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "또는 동등 서비스",
+      "reason": "core 는 도구 이름을 '예'로만 두는 백엔드 중립 서술. 플러그인은 Claude 커넥터 도구 이름을 직접 적는다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "**메시지 검색**: Slack",
+      "reason": "위와 같음 — 중립 서술."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "또는 Jira/Asana",
+      "reason": "위와 같음 — 중립 서술."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "mailskill`의 5동사",
+      "reason": "core 는 메일을 백엔드 중립 계약(mailskill 5동사)으로 쓴다. 플러그인은 단계 C 에서 mail 스킬을 직접 지시한다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "구현 세부이므로",
+      "reason": "백엔드 중립 계약 — 위와 같음."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "능력 매핑",
+      "contains": "messages-cli 계약",
+      "reason": "백엔드 중립 계약. 플러그인은 단계 C 5번에 msg 계약 한 줄로 둔다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "contains": "**언제**:",
+      "reason": "플러그인은 셋업 분기 조건을 SKILL.md 의 '설정 로드'·워크플로 표에 둔다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "contains": "YAML을 손으로 채우지 않게",
+      "reason": "플러그인은 '목적: 컴맹도 가능한 1회성 설정 생성' 한 줄로 같은 취지를 쓴다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-A",
+      "contains": "0-A-2로 연결 유도",
+      "reason": "core 의 능력 점검 표. 플러그인은 의존성 표 + A-1-1 로 같은 분기를 쓴다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-B",
+      "contains": "**명부 보드 컬럼**",
+      "reason": "같은 규칙을 core 는 한 문단, 플러그인은 하위 목록으로 쪼개 적었다(표현만 다름)."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-D",
+      "contains": "user-config.example.yaml",
+      "reason": "채팅 트랙은 견본 YAML 을 함께 업로드한다. 플러그인 디렉터리에는 견본이 실리지 않는다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-E",
+      "contains": "파일을 직접 쓸 수 있는 환경인지",
+      "reason": "채팅 분기(가/나). 플러그인은 늘 파일을 쓸 수 있는 환경이라 (가)만 있다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-E",
+      "contains": "(가) 파일 쓰기가 되는 환경",
+      "reason": "채팅 분기 — 위와 같음."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-E",
+      "contains": "(나) 파일 쓰기가 안 되는 환경",
+      "reason": "채팅 분기 — ChatGPT/Claude Project 지식 업로드 트랙 전용."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF0",
+      "step": "0-E",
+      "contains": "마스킹을 풀고 완성된 YAML",
+      "reason": "채팅 분기 (나) — 위와 같음."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-A",
+      "contains": "A-1. 의존성 점검",
+      "reason": "플러그인 전용 — 플러그인 README 의 설치 안내와 로컬 의존성(mail 스킬·세션 로그)을 점검한다."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-A",
+      "contains": "A-1-1. 연결이 없을 때",
+      "reason": "core 의 0-A-2 와 같은 절(단계 번호만 다름)."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-A",
+      "contains": "A-2. 디렉토리 준비",
+      "reason": "플러그인은 설정 파일을 직접 쓴다. core 는 0-E (가)에서 같은 처리를 한다."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-B",
+      "contains": "**캘린더 4종** — `list_calendars` 호출.",
+      "reason": "같은 규칙을 플러그인은 하위 목록으로 쪼개 적었다(표현만 다름)."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-B",
+      "contains": "**monday 보드** — 다음 4개",
+      "reason": "위와 같음 — 표현만 다름."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-B",
+      "contains": "**명부 보드 컬럼 자동 추출**",
+      "reason": "위와 같음 — 표현만 다름."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF0",
+      "step": "0-E",
+      "contains": "git에 올리지 말 것",
+      "reason": "로컬 파일 전용 안내. core 는 (나)에서 '공개 채널에 붙여넣지 말라'로 같은 취지를 쓴다."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF2",
+      "step": "단계 C",
+      "contains": "**Claude Code 환경**",
+      "reason": "core 는 세션 로그 스캔을 한 줄로 요약, 플러그인은 Bash+Python 절차를 하위 목록으로 적었다(표현만 다름)."
+    },
+    {
+      "kind": "line",
+      "side": "core",
+      "workflow": "WF2",
+      "step": "단계 C",
+      "contains": "가용한 메일 도구로",
+      "reason": "core 는 메일을 백엔드 중립으로, 플러그인은 mail 스킬(mailskill) 명령으로 적는다."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "WF2",
+      "step": "단계 C",
+      "contains": "`mail` 스킬 사용",
+      "reason": "위와 같음 — 플러그인은 로컬 mail 스킬을 쓴다."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "공통 출력 규칙",
+      "contains": "**진입점**: `/worklog",
+      "reason": "슬래시 명령은 플러그인에만 있다."
+    },
+    {
+      "kind": "line",
+      "side": "plugin",
+      "workflow": "실패 처리",
+      "contains": "`references/` 파일을 읽을 수 없으면",
+      "reason": "플러그인의 점진 공개 구조 전용."
+    }
+  ]
+}

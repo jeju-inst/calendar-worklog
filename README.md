@@ -65,8 +65,11 @@ calendar-worklog/
 > `core/prompt.md`(에이전트 중립. ChatGPT·Claude Projects·Codex가 읽음)와
 > `plugin/skills/calendar-worklog/SKILL.md` + `references/*.md`(Claude Code 플러그인용)는 **같은 워크플로의
 > 평행 사본**입니다. 플러그인 쪽은 호출당 분량을 줄이려고 공통 규칙·워크플로 1·3만 `SKILL.md`에 두고
-> 나머지 워크플로는 `references/<워크플로>.md`로 나눴습니다(해당 워크플로에서만 읽힘). 플러그인은 자기 디렉터리 밖 파일을 싣지 못해 include가 불가능합니다.
-> 한쪽 워크플로를 고치면 다른 쪽도 함께 고치세요.
+> 나머지 워크플로는 `references/<워크플로>.md`로 나눴습니다(해당 워크플로에서만 읽힘).
+> 플러그인은 자기 디렉터리 밖 파일을 싣지 못해 include가 불가능합니다.
+> 한쪽 워크플로를 고치면 다른 쪽도 함께 고치세요. 두 벌이 어긋나면 `python3 scripts/check-prompt-sync.py` 가
+> 알려 줍니다(PR 에서 CI 경고). 채팅 분기·백엔드 중립 계약처럼 **일부러 다른 곳**은
+> `scripts/prompt-sync-exceptions.json` 에 근거와 함께 적습니다.
 
 ## 빠르게 시작 (Claude Projects)
 

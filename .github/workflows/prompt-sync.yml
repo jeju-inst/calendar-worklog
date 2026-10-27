@@ -1,0 +1,22 @@
+name: prompt-sync
+
+# core/prompt.md(채팅 트랙용 중립 사본)와 플러그인 스킬(SKILL.md + references/)의 어긋남을 경고한다.
+# 지금은 경고만 한다(실패시키지 않음). 의도적 차이는 scripts/prompt-sync-exceptions.json 에 근거와 함께.
+
+on:
+  pull_request:
+    paths:
+      - core/prompt.md
+      - plugin/skills/calendar-worklog/**
+      - scripts/check-prompt-sync.py
+      - scripts/prompt-sync-exceptions.json
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check-prompt-sync.py
