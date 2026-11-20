@@ -117,6 +117,14 @@ class KeychainUnreadable(Base):
         self.assertEqual(v, "unknown")
         self.assertIn("security-timeout", reason)
 
+    def test_malformed_oauth_is_unknown_not_crash(self):
+        self.daemon("auth_required", now_ms() - 100 * 24 * HOUR_MS)
+        for body in ('{"claudeAiOauth": null}', '[]', '{"claudeAiOauth": "x"}', 'null'):
+            self.kc = subprocess.CompletedProcess([], 0, stdout=body, stderr="")
+            v, _, reason = self._resolve()
+            self.assertEqual(v, "unknown", body)
+            self.assertIn("no-claudeAiOauth", reason)
+
     def test_daemon_ok_is_still_unknown(self):
         self.daemon("ok", None)
         self.assertEqual(self._resolve()[0], "unknown")

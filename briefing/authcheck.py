@@ -106,9 +106,12 @@ def keychain_state():
     if not p.stdout.strip():
         return "unreadable", "empty-secret"
     try:
-        oauth = json.loads(p.stdout).get("claudeAiOauth", {})
+        data = json.loads(p.stdout)
     except Exception:
         return "unreadable", "json-parse"
+    oauth = data.get("claudeAiOauth") if isinstance(data, dict) else None
+    if not isinstance(oauth, dict):
+        return "unreadable", "no-claudeAiOauth"
     exp = oauth.get("refreshTokenExpiresAt")
     if not exp:
         return "unreadable", "no-refreshTokenExpiresAt"
