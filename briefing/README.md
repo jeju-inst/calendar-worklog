@@ -27,7 +27,7 @@ worklog 본체(`core/prompt.md`)가 *어제 뭐 했나*를 캘린더에 기록�
 | `canvas-sync.py` | 모델이 낸 TODO 블록을 Slack 캔버스 체크리스트로 생성·공유·프루닝. 러너가 **성공 실행에서만** 호출(비차단) |
 | `todo-list.example.json` | 캔버스 동기화 설정 템플릿. 본인 값은 레포 밖(`~/.config/calendar-worklog/`)에 둔다 |
 | `notify.py` | 독립 경로 Slack 알림(봇 토큰 직접). claude가 죽어도 이 경로는 산다 |
-| `authcheck.py` | claude 로그인 상태 선제 감시 (keychain 기준, 비용 0) |
+| `authcheck.py` | claude 로그인 상태 선제 감시 (keychain 기준, 비용 0). 못 읽으면 만료가 아니라 확인 불가로 처리. 테스트: `python3 -m unittest discover -s briefing/tests` |
 | `com.namun.morning-briefing.plist` | launchd 스케줄 (평일 08:00) |
 | `com.namun.claude-authcheck.plist` | launchd 스케줄 (로그인 감시, 매시간) |
 | `SETUP-TOKEN.md` | 브리핑 전용 장기 토큰(`claude setup-token`) 발급·갱신 절차 |
